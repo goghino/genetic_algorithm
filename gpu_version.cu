@@ -36,7 +36,7 @@ Outputs:
 
 using namespace std;
 
-#define POPULATION_SIZE 4096 /* must be multiple of 64 == BLOCK */
+#define POPULATION_SIZE (4096) /* must be multiple of 64 == BLOCK */
 #define INDIVIDUAL_LEN 4
 #define N_POINTS 100
 
@@ -48,8 +48,8 @@ using namespace std;
 #define mu_genes 0.56
 #define sigma_genes 0.75
 
-#define BLOCK 64
-#define THREAD (POPULATION_SIZE/BLOCK)
+#define BLOCK (POPULATION_SIZE/THREAD)
+#define THREAD 128
 
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
