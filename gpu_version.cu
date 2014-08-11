@@ -148,32 +148,18 @@ __global__ void crossover(float *population_dev, curandState *state)
     Generates probabilities for mutation of individuals and their genes
     into arrays in device global memory
 */
-void generateMutProbab(float** mutIndivid, float **mutGene)
+void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator)
 {
-    curandGenerator_t generator;
-
-    cudaMalloc((void **)mutIndivid,POPULATION_SIZE*sizeof(float));
-    check_cuda_error("Allocating memory in devPm");
-
-    curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
-    check_cuda_error("Error in curandCreateGenerator");
-
-    curandSetPseudoRandomGeneratorSeed(generator, time(NULL));
-    check_cuda_error("Error in curandSeed");
-
+    //mutation rate of individuals
     curandGenerateNormal(generator, *mutIndivid,
                         POPULATION_SIZE, mu_individuals, sigma_individuals);
     check_cuda_error("Error in normalGenerating 1");
 
-
-    cudaMalloc((void **)mutGene,POPULATION_SIZE*INDIVIDUAL_LEN*sizeof(float));
-    check_cuda_error("Allocating memory in pMutate 2");
-
+    //mutation rate of each gene
     curandGenerateNormal(generator, *mutGene,
                         POPULATION_SIZE*INDIVIDUAL_LEN, mu_genes, sigma_genes);
     check_cuda_error("Error in normalGenerating 2");
 
-    curandDestroyGenerator(generator);
 }
 
 /**
@@ -327,6 +313,7 @@ int main(int argc, char **argv)
     cudaMalloc(&fitness_dev, POPULATION_SIZE*sizeof(float));
     check_cuda_error("Error allocating device memory");
 
+    //key value for sorting
     int *indexes_dev;
     cudaMalloc(&indexes_dev, POPULATION_SIZE*sizeof(int));
     check_cuda_error("Error allocating device memory");
@@ -335,7 +322,25 @@ int main(int argc, char **argv)
     cudaMalloc((void **)&state_random,POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(curandState));
     check_cuda_error("Allocating memory for curandState");
 
-    //recast device pointers in thrust copatible pointers
+    //mutation probabilities
+    float* mutIndivid_d;
+    cudaMalloc((void **) &mutIndivid_d,POPULATION_SIZE*sizeof(float));
+    check_cuda_error("Allocating memory in mutIndivid_d");
+
+    float* mutGene_d;
+    cudaMalloc((void **)&mutGene_d,POPULATION_SIZE*INDIVIDUAL_LEN*sizeof(float));
+    check_cuda_error("Allocating memory in mutGene_d");
+
+    //create PRNG for generating mutation probabilities
+    curandGenerator_t generator;
+
+    curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
+    check_cuda_error("Error in curandCreateGenerator");
+
+    curandSetPseudoRandomGeneratorSeed(generator, time(NULL));
+    check_cuda_error("Error in curandSeed");
+
+    //recast device pointers into thrust copatible pointers
     thrust::device_ptr<int> indexes_thrust = thrust::device_pointer_cast(indexes_dev);
     thrust::device_ptr<float> fitnesses_thrust = thrust::device_pointer_cast(fitness_dev);
 
@@ -366,12 +371,9 @@ int main(int argc, char **argv)
         cudaDeviceSynchronize();
 
 		/** mutate population and childrens in the whole population*/
-        float* mutIndivid_d; float* mutGene_d;
-        generateMutProbab(&mutIndivid_d, &mutGene_d);
+        generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
 		mutation<<<THREAD,BLOCK>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
         cudaDeviceSynchronize();
-        cudaFree(mutIndivid_d);//throw away random numbers
-        cudaFree(mutGene_d);
 		
         /** evaluate fitness of individuals in population */
 		fitness_evaluate<<<THREAD,BLOCK>>>(population_dev, points_dev, fitness_dev);
@@ -437,12 +439,16 @@ int main(int argc, char **argv)
     delete [] points;
     delete [] solution;
 
-    cudaFree(points_dev);
-    cudaFree(fitness_dev);
-    cudaFree(indexes_dev);
+    cudaFree(points_dev);//input points
+    cudaFree(fitness_dev);//fitness array
+    cudaFree(indexes_dev);//key for sorting
     cudaFree(population_dev);
     cudaFree(newPopulation_dev);
-    cudaFree(state_random);
+    cudaFree(state_random);//state curand
+    cudaFree(mutIndivid_d);//mutation probability
+    cudaFree(mutGene_d);//mutation probability
+
+    curandDestroyGenerator(generator);
 }
 
 //------------------------------------------------------------------------------
