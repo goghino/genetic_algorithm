@@ -438,7 +438,7 @@ int main(int argc, char **argv)
         << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
     delete [] points;
-    delete [] solution;
+    //delete [] solution;
 
     cudaFree(points_dev);//input points
     cudaFree(fitness_dev);//fitness array
@@ -449,7 +449,7 @@ int main(int argc, char **argv)
     cudaFree(mutIndivid_d);//mutation probability
     cudaFree(mutGene_d);//mutation probability
 
-    curandDestroyGenerator(generator);
+    //curandDestroyGenerator(generator);
 }
 
 //------------------------------------------------------------------------------
