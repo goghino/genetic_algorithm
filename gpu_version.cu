@@ -82,7 +82,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
         //for every polynomial parameter: Ci * x^(order)
 		for (int order=0; order < INDIVIDUAL_LEN; order++)
 		{
-			f_approx += individuals[idx*INDIVIDUAL_LEN + order] * pow(points[pt], order);
+			f_approx += individuals[idx + order*POPULATION_SIZE] * pow(points[pt], order);
 		}
 
 		sumError += pow(f_approx - points[N_POINTS+pt], 2);
@@ -129,16 +129,16 @@ __global__ void crossover(float *population_dev, curandState *state)
     for(int j=0; j<INDIVIDUAL_LEN; j++){
         if(j<crosspoint)
         {
-            population_dev[idx*INDIVIDUAL_LEN +j]
-                = population_dev[parent1_i*INDIVIDUAL_LEN + j];
-            population_dev[idx*INDIVIDUAL_LEN +j+INDIVIDUAL_LEN]
-                = population_dev[parent2_i*INDIVIDUAL_LEN + j];  
+            population_dev[idx +j*POPULATION_SIZE]
+                = population_dev[parent1_i + j*POPULATION_SIZE];
+            population_dev[idx + j*POPULATION_SIZE + 1]
+                = population_dev[parent2_i + j*POPULATION_SIZE];  
         } else
         {
-            population_dev[idx*INDIVIDUAL_LEN + j]
-                = population_dev[parent2_i*INDIVIDUAL_LEN + j];
-            population_dev[idx*INDIVIDUAL_LEN + j+INDIVIDUAL_LEN]
-                = population_dev[parent1_i*INDIVIDUAL_LEN + j];
+            population_dev[idx + j*POPULATION_SIZE]
+                = population_dev[parent2_i + j*POPULATION_SIZE];
+            population_dev[idx + j*POPULATION_SIZE + 1]
+                = population_dev[parent1_i + j*POPULATION_SIZE];
         }
     }
 
@@ -159,7 +159,6 @@ void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t ge
     curandGenerateNormal(generator, *mutGene,
                         POPULATION_SIZE*INDIVIDUAL_LEN, mu_genes, sigma_genes);
     check_cuda_error("Error in normalGenerating 2");
-
 }
 
 /**
@@ -195,7 +194,7 @@ __global__ void mutation(float *individuals, curandState *state,
 
     for(int j=0; j<INDIVIDUAL_LEN; j++)
     {
-        int flip_idx = idx*INDIVIDUAL_LEN + j;
+        int flip_idx = idx + j*POPULATION_SIZE;
         //probability of mutating gene 
         if(mutGene[flip_idx] < mutationRate) {
             individuals[flip_idx] += 0.01*(2*curand_uniform(&localState)-1);
@@ -237,8 +236,8 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
     //reorder population so that fittest individuals are first
     for (int j=0; j<INDIVIDUAL_LEN; j++)
     {
-        newPopulation[idx*INDIVIDUAL_LEN + j]
-            = population[indexes[idx]*INDIVIDUAL_LEN + j];
+        newPopulation[idx + j*POPULATION_SIZE]
+            = population[indexes[idx] + j*POPULATION_SIZE];
     }
 }
 
@@ -263,7 +262,7 @@ __global__ void initPopulation(float *population, curandState *state)
     if(id < POPULATION_SIZE)
     {
         for(int i=0; i<INDIVIDUAL_LEN; i++)
-            population[id*INDIVIDUAL_LEN + i] = 10*curand_uniform(&localState) - 5;        
+            population[id + i*POPULATION_SIZE] = 10*curand_uniform(&localState) - 5;        
     }
 }
 
@@ -367,27 +366,27 @@ int main(int argc, char **argv)
 		generationNumber++;
 	
         /** crossover first half of the population and create new population */
-		crossover<<<THREAD,BLOCK>>>(population_dev, state_random);
+		crossover<<<BLOCK,THREAD>>>(population_dev, state_random);
         cudaDeviceSynchronize();
 
 		/** mutate population and childrens in the whole population*/
         generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
-		mutation<<<THREAD,BLOCK>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
+		mutation<<<BLOCK,THREAD>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
         cudaDeviceSynchronize();
 		
         /** evaluate fitness of individuals in population */
-		fitness_evaluate<<<THREAD,BLOCK>>>(population_dev, points_dev, fitness_dev);
+		fitness_evaluate<<<BLOCK,THREAD>>>(population_dev, points_dev, fitness_dev);
         cudaDeviceSynchronize();
         
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
             fittest individuals first in population  */
-        setIndexes<<<THREAD,BLOCK>>>(indexes_dev);
+        setIndexes<<<BLOCK,THREAD>>>(indexes_dev);
         cudaDeviceSynchronize();
 
         thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
 
-        selection<<<THREAD,BLOCK>>>(population_dev, newPopulation_dev, indexes_dev);
+        selection<<<BLOCK,THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
         cudaDeviceSynchronize();
         
         //swap populations        
@@ -422,8 +421,10 @@ int main(int argc, char **argv)
 
     //get solution from device to host
     float *solution = new float[INDIVIDUAL_LEN];
-    cudaMemcpy(solution, population_dev, INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
-    check_cuda_error("Coping fitnesses_dev[0] to host");
+    for(int i=0; i<INDIVIDUAL_LEN; i++){
+        cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE], INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
+        check_cuda_error("Coping fitnesses_dev[0] to host");
+    }
     
     //solution is first individual of population with the best params of a polynomial    
     cout << "\tc0 = " << solution[0] << endl \
