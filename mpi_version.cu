@@ -406,7 +406,7 @@ void computeGA(float *points,
     //get solution from device to host
     for(int i=0; i<INDIVIDUAL_LEN; i++){
         cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE],
-                   INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
+                   sizeof(float), cudaMemcpyDeviceToHost);
         check_cuda_error("Coping fitnesses_dev[0] to host");
     }
 
@@ -418,7 +418,7 @@ void computeGA(float *points,
 
     /**
         Free memory
-    *//*
+    */
     cudaFree(points_dev);//input points
     cudaFree(fitness_dev);//fitness array
     cudaFree(indexes_dev);//key for sorting
@@ -428,7 +428,7 @@ void computeGA(float *points,
     cudaFree(mutIndivid_d);//mutation probability
     cudaFree(mutGene_d);//mutation probability
 
-    curandDestroyGenerator(generator);*/
+    curandDestroyGenerator(generator);
 }
 
 //------------------------------------------------------------------------------

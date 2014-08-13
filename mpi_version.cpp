@@ -130,7 +130,7 @@ int main(int argc, char **argv)
         MPI_CHECK(MPI_Send(&genNumber_o, 1, MPI_INT, 0, 44, MPI_COMM_WORLD));
     }
 
-    //find best solution amongs obtained results and print it
+    //find best solution amongst obtained results and print it
     if(commRank == 0) {
         //select best result
         int bestSolution = findMinimum(bestFitness_all, commSize); 
@@ -152,8 +152,8 @@ int main(int argc, char **argv)
 
     }
 
-    //delete [] points;
-    //delete [] solution_o;
+    delete [] points;
+    delete [] solution_o;
 
     if(commRank == masterProcess){
         delete [] solution_all;

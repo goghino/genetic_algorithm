@@ -422,7 +422,7 @@ int main(int argc, char **argv)
     //get solution from device to host
     float *solution = new float[INDIVIDUAL_LEN];
     for(int i=0; i<INDIVIDUAL_LEN; i++){
-        cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE], INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE], sizeof(float), cudaMemcpyDeviceToHost);
         check_cuda_error("Coping fitnesses_dev[0] to host");
     }
     
@@ -437,9 +437,9 @@ int main(int argc, char **argv)
     cout << "Time for GPU calculation equals \033[35m" \
         << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
-    /* CRASHES HERE
+    //CRASHES HERE
     delete [] points;
-    //delete [] solution;
+    delete [] solution;
 
     cudaFree(points_dev);//input points
     cudaFree(fitness_dev);//fitness array
@@ -450,8 +450,7 @@ int main(int argc, char **argv)
     cudaFree(mutIndivid_d);//mutation probability
     cudaFree(mutGene_d);//mutation probability
 
-    //curandDestroyGenerator(generator);
-    */
+    curandDestroyGenerator(generator);
 }
 
 //------------------------------------------------------------------------------
