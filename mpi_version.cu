@@ -34,11 +34,9 @@ Outputs:
 #include <thrust/sort.h>
 #include <thrust/device_ptr.h>
 
-using namespace std;
+#include "mpi_version.h"
 
-#define POPULATION_SIZE (4096) /* must be multiple of 64 == BLOCK */
-#define INDIVIDUAL_LEN 6       /* order of polynom +1 for c0*/
-#define N_POINTS 100
+using namespace std;
 
 #define maxGenerationNumber 1500
 #define maxConstIter 100
@@ -50,13 +48,6 @@ using namespace std;
 
 #define BLOCK (POPULATION_SIZE/THREAD)
 #define THREAD 128
-
-// Reads input file with noisy points. Points will be approximated by 
-// polynomial function using GA.
-float *readData(const char *name, const int POINTS_CNT);
-
-// Gets last error and prints message when error is present
-void check_cuda_error(const char *message);
 
 /**
     An individual fitness function is the difference between measured f(x) and
@@ -273,20 +264,12 @@ __global__ void initPopulation(float *population, curandState *state)
     ------------------------
     | Main body of the GA  |
     ------------------------
+
+    Computes approximation of given points
 */
-int main(int argc, char **argv)
+void computeGA(float *points,
+               float *solution, float *bestFitness_o, int *genNumber_o, double *time_o)
 {
-    if(argc != 2) {
-        cerr << "Usage: $./gpu inputFile" << endl;    
-        return -1;
-    }
-
-    //read input data
-    //points are the data to approximate by a polynomial
-    float *points = readData(argv[1], N_POINTS);
-    if(points == NULL)
-        return -1;
-
 
     /**
         Allocations of memory
@@ -416,31 +399,26 @@ int main(int argc, char **argv)
 
     int t2 = clock(); //stop timer
 
-    cout << "------------------------------------------------------------" << endl;    
-    cout << "Finished! Found Solution:" << endl;
+    /**
+        Results
+    */
 
     //get solution from device to host
-    float *solution = new float[INDIVIDUAL_LEN];
     for(int i=0; i<INDIVIDUAL_LEN; i++){
-        cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE], INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE],
+                   INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
         check_cuda_error("Coping fitnesses_dev[0] to host");
     }
-    
-    //solution is first individual of population with the best params of a polynomial 
-    for(int i=0; i<INDIVIDUAL_LEN; i++){   
-        cout << "\tc" << i << " = " << solution[i] << endl;
-    }
 
-    cout << "Best fitness: " << bestFitness << endl \
-    << "Generations: " << generationNumber << endl;
+    *bestFitness_o = bestFitness;
+    *genNumber_o = generationNumber;
+    *time_o = (t2-t1)/(double)CLOCKS_PER_SEC;
 
-    cout << "Time for GPU calculation equals \033[35m" \
-        << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
-    /* CRASHES HERE
-    delete [] points;
-    //delete [] solution;
 
+    /**
+        Free memory
+    *//*
     cudaFree(points_dev);//input points
     cudaFree(fitness_dev);//fitness array
     cudaFree(indexes_dev);//key for sorting
@@ -450,34 +428,10 @@ int main(int argc, char **argv)
     cudaFree(mutIndivid_d);//mutation probability
     cudaFree(mutGene_d);//mutation probability
 
-    //curandDestroyGenerator(generator);
-    */
+    curandDestroyGenerator(generator);*/
 }
 
 //------------------------------------------------------------------------------
-
-float *readData(const char *name, const int POINTS_CNT)
-{
-    FILE *file = fopen(name,"r");
- 
-	float *points = new float[2*POINTS_CNT]; 
-    if (file != NULL){
-
-        int k=0;
-        //x, f(x)
-        while(fscanf(file,"%f %f",&points[k],&points[POINTS_CNT+k])!= EOF){
-            k++;
-        }
-        fclose(file);
-        cout << "Reading file - success!" << endl;
-    }else{
-        cerr << "Error while opening the file " << name << "!!!" << endl;
-        delete [] points;
-        return NULL;
-    }
-
-    return points;
-}
 
 void check_cuda_error(const char *message)
 {
