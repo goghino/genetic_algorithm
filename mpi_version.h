@@ -17,4 +17,7 @@ extern "C" {
 
     // Finished MPI and aborts
     void my_abort(int err);
+
+    // returns index of minimal value in the input array
+    int findMinimum(float *array, int arrayLen);
 }

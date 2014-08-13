@@ -39,10 +39,9 @@ using namespace std;
         cerr << "MPI error calling \""#call"\"\n"; \
         my_abort(-1); }
 
-
 /*
     ------------------------
-    | Main body of the GA  |
+    |  MPI communication   |
     ------------------------
 */
 int main(int argc, char **argv)
@@ -60,8 +59,6 @@ int main(int argc, char **argv)
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &commSize));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &commRank));
 
-    cout << "My rank: " << commRank << endl;
-
     //read input data
     //points are the data to approximate by a polynomial
     float *points = readData(argv[1], N_POINTS);
@@ -69,35 +66,101 @@ int main(int argc, char **argv)
         return -1;
 
     //variables for results
-    float *solution = new float[INDIVIDUAL_LEN];
+    float *solution_o = new float[INDIVIDUAL_LEN];
     float bestFitness_o;
     double time_o;
     int genNumber_o;
 
-    computeGA(points, solution, &bestFitness_o, &genNumber_o, &time_o);
+    //compute solution and its computational statistics on each process
+    computeGA(points, solution_o, &bestFitness_o, &genNumber_o, &time_o);
 
 
     /**
-        Results
+       Process results on master process.
+       Other processes send its results to master that will find best solution.
     */
+    int masterProcess = 0;
     
-
-    cout << "------------------------------------------------------------" << endl;    
-    cout << "Finished! Found Solution:" << endl;
-    
-    //solution is first individual of population with the best params of a polynomial 
-    for(int i=0; i<INDIVIDUAL_LEN; i++){   
-        cout << "\tc" << i << " = " << solution[i] << endl;
+    //storage for results from all processes at master process
+    float *solution_all;
+    float *bestFitness_all;
+    double *time_all;
+    int *genNumber_all;
+    if(commRank == masterProcess){
+        solution_all = new float[INDIVIDUAL_LEN*commSize];
+        bestFitness_all = new float[INDIVIDUAL_LEN];
+        time_all = new double[INDIVIDUAL_LEN];
+        genNumber_all = new int[INDIVIDUAL_LEN];
     }
 
-    cout << "Best fitness: " << bestFitness_o << endl \
-    << "Generations: " << genNumber_o << endl;
 
-    cout << "Time for GPU calculation equals \033[35m" \
-        << time_o << " seconds\033[0m" << endl;
+    if(commRank == masterProcess)
+    {
+        //recv solutions from all slave processes and copy your own results
+        for(int i=1; i<commSize; i++)
+        {
+            //receive solution
+            MPI_CHECK(MPI_Recv(&solution_all[i*INDIVIDUAL_LEN], INDIVIDUAL_LEN, MPI_FLOAT,
+                      i, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+
+            //receive fitness, time and generations count
+            MPI_CHECK(MPI_Recv(&bestFitness_all[i], 1, MPI_FLOAT,
+                      i, 22, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+            MPI_CHECK(MPI_Recv(&time_all[i], 1, MPI_DOUBLE,
+                      i, 33, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+            MPI_CHECK(MPI_Recv(&genNumber_all[i], 1, MPI_INT,
+                      i, 44, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+        }
+
+        //copy your own results
+        for(int i=0; i<INDIVIDUAL_LEN; i++)
+            solution_all[masterProcess+i] = solution_o[i]; 
+        bestFitness_all[masterProcess] = bestFitness_o;
+        time_all[masterProcess] = time_o;
+        genNumber_all[masterProcess] =  genNumber_o;
+        
+    }else //send results to master process with rank 0
+    {
+        //send solution
+        MPI_CHECK(MPI_Send(solution_o, INDIVIDUAL_LEN, MPI_FLOAT, 0, 11, MPI_COMM_WORLD));
+        
+        //send fitness, time and generations count
+        MPI_CHECK(MPI_Send(&bestFitness_o, 1, MPI_FLOAT, 0, 22, MPI_COMM_WORLD));
+        MPI_CHECK(MPI_Send(&time_o, 1, MPI_DOUBLE, 0, 33, MPI_COMM_WORLD));
+        MPI_CHECK(MPI_Send(&genNumber_o, 1, MPI_INT, 0, 44, MPI_COMM_WORLD));
+    }
+
+    //find best solution amongs obtained results and print it
+    if(commRank == 0) {
+        //select best result
+        int bestSolution = findMinimum(bestFitness_all, commSize); 
+
+        cout << "------------------------------------------------------------" << endl;    
+        cout << "Finished! Found Solution at process " << bestSolution << ": " << endl;       
+
+        //solution with the best params of a polynomial 
+        for(int i=0; i<INDIVIDUAL_LEN; i++){   
+            cout << "\tc" << i << " = " << \
+            solution_all[bestSolution*INDIVIDUAL_LEN + i] << endl;
+        }
+
+        cout << "Best fitness: " << bestFitness_all[bestSolution] << endl \
+        << "Generations: " << genNumber_all[bestSolution] << endl;
+
+        cout << "Time for GPU calculation equals \033[35m" \
+            << time_all[bestSolution] << " seconds\033[0m" << endl;
+
+    }
 
     //delete [] points;
-    //delete [] solution;
+    //delete [] solution_o;
+
+    if(commRank == masterProcess){
+        delete [] solution_all;
+        delete [] bestFitness_all;
+        delete [] time_all;
+        delete [] genNumber_all;
+    }
 
 
     MPI_CHECK(MPI_Finalize());
@@ -126,6 +189,23 @@ float *readData(const char *name, const int POINTS_CNT)
     }
 
     return points;
+}
+
+// returns index of minimal value in the input array
+int findMinimum(float *array, int arrayLen){
+
+    int min = array[0];
+    int minIdx = 0;
+
+    for(int i=1; i<arrayLen; i++)
+    {
+        if(array[i] < min){
+            min = array[i];         
+            minIdx = i;
+        }
+    }
+
+    return minIdx;
 }
 
 // Shut down MPI cleanly if something goes wrong
