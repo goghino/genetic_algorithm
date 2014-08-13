@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+float c5 = -2.;
+float c4 = 1.;
 float c3 = -2.;
 float c2 = 4.;
 float c1 = 3.;
@@ -14,11 +16,16 @@ float noise()
 
 float poly(float x){
 
-    return (c3*x*x*x + c2*x*x + c1*x +c0);
+    return (c5*x*x*x*x*x + c4*x*x*x*x + c3*x*x*x + c2*x*x + c1*x +c0);
 }
 
 int main(int argc, char **argv)
 {
+
+    if(argc != 2){
+        fprintf(stderr, "$./generator N\n");
+        return -1;
+    }
 
     int N = atoi(argv[1]);
     
@@ -29,7 +36,7 @@ int main(int argc, char **argv)
 
     //fprintf(f,"%f %f %f %f\n",c0,c1,c2,c3);
 
-    float x = -1.0;
+    float x = 1.0;
     for(int i=0; i<100; i++){
         x += 0.03;
         fprintf(f, "%f %f\n", x, poly((x))+noise());

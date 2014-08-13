@@ -1,5 +1,5 @@
 set terminal png size 1920,1080
-set output "plot.png"
+set output "plot3.png"
 set xrange [-2:3]
 set yrange [-6:5]
 set pointsize 1.5
@@ -19,7 +19,7 @@ c1g = 2.97
 c0g = -5.00
 g_gpu(x) = c3g*x**3 + c2g*x**2 + c1g*x + c0g
 
-plot "input.txt" title "Noisy data", \
+plot "input3.txt" title "Noisy data", \
 f(x) title "generating function f(x)", \
 g_cpu(x) title "CPU approximated f'(x)",\
 g_gpu(x) title "GPU approximated f''(x)"
