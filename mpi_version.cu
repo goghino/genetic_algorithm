@@ -267,9 +267,12 @@ __global__ void initPopulation(float *population, curandState *state)
 
     Computes approximation of given points
 */
-void computeGA(float *points,
+void computeGA(float *points, int deviceID,
                float *solution, float *bestFitness_o, int *genNumber_o, double *time_o)
 {
+
+    cudaSetDevice(deviceID);
+    check_cuda_error("Setting device");
 
     /**
         Allocations of memory
@@ -429,6 +432,9 @@ void computeGA(float *points,
     cudaFree(mutGene_d);//mutation probability
 
     curandDestroyGenerator(generator);
+
+    cudaDeviceReset();
+    check_cuda_error("Resseting device");
 }
 
 //------------------------------------------------------------------------------

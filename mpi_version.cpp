@@ -47,7 +47,7 @@ using namespace std;
 int main(int argc, char **argv)
 {
     if(argc != 2) {
-        cerr << "Usage: $./gpu inputFile" << endl;    
+        cerr << "Usage: $mpirun -np N ./gpu inputFile" << endl;    
         return -1;
     }
 
@@ -58,6 +58,12 @@ int main(int argc, char **argv)
     int commSize, commRank;
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &commSize));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &commRank));
+
+    if(commSize > 3)
+    {
+        cerr << "Cannot run with more than 3 processes!" << endl;
+        return -1;        
+    }
 
     //read input data
     //points are the data to approximate by a polynomial
@@ -71,8 +77,8 @@ int main(int argc, char **argv)
     double time_o;
     int genNumber_o;
 
-    //compute solution and its computational statistics on each process
-    computeGA(points, solution_o, &bestFitness_o, &genNumber_o, &time_o);
+    //compute solution at each process on different GPUs
+    computeGA(points, commRank, solution_o, &bestFitness_o, &genNumber_o, &time_o);
 
 
     /**

@@ -9,7 +9,7 @@ extern "C" {
     float *readData(const char *name, const int POINTS_CNT);
 
     // GA algorithm running on GPU
-    void computeGA(float *points,
+    void computeGA(float *points, int deviceID,
        float *solution, float *bestFitness_o, int *genNumber_o, double *time_o);
 
     // Gets last error and prints message when error is present
