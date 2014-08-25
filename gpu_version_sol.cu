@@ -48,12 +48,8 @@ using namespace std;
 #define mu_genes 0.56
 #define sigma_genes 0.75
 
-//TODO
-// Specify configuration of GPU kernel launch, use 1D case
-// HINT: For example you can have thread for each individual
-// from population and process whole individual within the kernel.
-#define BLOCK 0
-#define THREAD 0 
+#define BLOCK 64
+#define THREAD (POPULATION_SIZE/BLOCK)
 
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
@@ -63,22 +59,37 @@ float *readData(const char *name, const int POINTS_CNT);
 void check_cuda_error(const char *message);
 
 /**
-    An individual fitness value is the difference between measured f(x) and
-    approximated polynomial g(x) for some given x,
-    
-    Individual's fitness value is evaluated on all input data points. Final
-    fitness value is sum of the differencs.
+    An individual fitness function is the difference between measured f(x) and
+    approximated polynomial g(x), built using individual's coeficients,
+    evaluated on input data points.
 
     Smaller value means bigger fitness
 */
 __global__ void fitness_evaluate(float *individuals, float *points, float *fitness)
 {
 
-    //TODO
-    //Compute fitness value for each individual, use array @fitness (3rd argument)
-    //Array points contains input data, x coordinate and corresponding f(x) value    
-    //points[i] - x value
-    //points[N_POINTS+i] - f(x) value
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if(idx >= POPULATION_SIZE)
+        return;
+
+    float sumError = 0;
+
+    //for every given data point
+	for(int pt=0; pt<N_POINTS; pt++)
+	{
+		float f_approx = 0.;
+		
+        //for every polynomial parameter: Ci * x^(order)
+		for (int order=0; order < INDIVIDUAL_LEN; order++)
+		{
+			f_approx += individuals[idx*INDIVIDUAL_LEN + order] * pow(points[pt], order);
+		}
+
+		sumError += pow(f_approx - points[N_POINTS+pt], 2);
+	}
+	
+    //The lower value of fitness is, the better individual fits the model
+	fitness[idx] = sumError;
 }
 
 
@@ -100,7 +111,7 @@ __global__ void crossover(float *population_dev, curandState *state)
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
     //Replace only second half of the population by new individuals
-    //created by crossover-ing individuals from the first half of the population
+    //created by crossover from the first half of the population
     if(idx >= POPULATION_SIZE || idx<POPULATION_SIZE/2)
         return;
    
@@ -152,40 +163,46 @@ void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t ge
 }
 
 /**
-    Mutation is addition of noise to genes.
+    Mutation is addition of noise to genes, given mean and stddev.
 
-    Probabilities of mutating individuals and their 
+    probabilities of mutating individuals and their 
     genes is computed before calling this kernel
     @mutGene
     @mutIndivid
 
-    For example:
+    For example(binary representation of genes):
     individual == [1 1 1 1]
-    mutate two of its genes    
-
+    mutNumber = 2
     loop 2 times:
        1st: num_of_bit_to_mutate = 2
-            add noise (-0.1) to individuals[2]   ->   [1 1 0.9 1] 
+            inverse individuals[2]   ->   [1 1 0 1] 
        2nd: num_of_bit_to_mutate = 0
-            add noise (0.2)  to individuals[0]   ->   [1.2 1 0.9 1]
-
-    return mutated individual         [1.2 1 0.9 1]
+            inverse individuals[0]   ->   [0 1 0 1]
+    return mutated individual         [0 1 0 1]
 */
 __global__ void mutation(float *individuals, curandState *state,
                          float* mutIndivid, float* mutGene)
 {
+    int idx = blockDim.x*blockIdx.x + threadIdx.x;
+
+    curandState localState = state[idx];
     
-    //TODO
-    //Implement mutation of individuals from population.
-    //To decide whether mutate given gene of current individual
-    //use given variables mutIndivid and mutGene:
-    //  if(mutGene[gene_idx] < mutIndivid[individual_idx])
-    //      mutate
-    //  else
-    //      do not mutate
-    
-    //To generate the noise use curand_uniform(curandState *)
-    //Noise should be from interval <-0.05, +0.05>
+    //first individual is not mutated to keep the best solution unchanged    
+    if(idx >= POPULATION_SIZE || idx < 1)
+        return;
+
+    float mutationRate = mutIndivid[idx];
+
+    for(int j=0; j<INDIVIDUAL_LEN; j++)
+    {
+        int flip_idx = idx*INDIVIDUAL_LEN + j;
+        //probability of mutating gene 
+        if(mutGene[flip_idx] < mutationRate) {
+            individuals[flip_idx] += 0.01*(2*curand_uniform(&localState)-1);
+        } 
+    }
+
+    state[idx] = localState;
 }
 
 /**
@@ -240,13 +257,14 @@ __global__ void initCurand(curandState *state)
 */
 __global__ void initPopulation(float *population, curandState *state)
 {
+    int id = blockDim.x * blockIdx.x + threadIdx.x;
+    curandState localState = state[id];
 
-    //TODO
-    //Implement this kernel that inits each individual
-    //by some random value from interval <-5.0, 5.0>
-    //Use function curand_uniform(curandState *state)
-    //to generate random numbers
-
+    if(id < POPULATION_SIZE)
+    {
+        for(int i=0; i<INDIVIDUAL_LEN; i++)
+            population[id*INDIVIDUAL_LEN + i] = 10*curand_uniform(&localState) - 5;        
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -276,28 +294,23 @@ int main(int argc, char **argv)
     */
     //device memory for holding input points
     float *points_dev;
-    //TODO
-    //Allocate memory to hold our input data points on the GPU
+    cudaMalloc(&points_dev, 2*N_POINTS*sizeof(float)); // [x, f(x)+err]
     check_cuda_error("Error allocating device memory");
-    //TODO
-    //Copy input data points to GPU
+    cudaMemcpy(points_dev, points, 2*N_POINTS*sizeof(float), cudaMemcpyHostToDevice);
     check_cuda_error("Error copying data");
 
     //arrays to hold old and new population    
     float *population_dev;
-    //TODO
-    //Allocate memory to hold whole population on the GPU
+    cudaMalloc(&population_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
     check_cuda_error("Error allocating device memory");
 
     float *newPopulation_dev;
-    //TODO
-    //Allocate memory to hold evolved population on the GPU
+    cudaMalloc(&newPopulation_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
     check_cuda_error("Error allocating device memory");
 
     //arrays that keeps fitness of individuals withing current population
     float *fitness_dev;
-    //TODO
-    //Alocate memory to hold fitness values on the GPU
+    cudaMalloc(&fitness_dev, POPULATION_SIZE*sizeof(float));
     check_cuda_error("Error allocating device memory");
 
     //key value for sorting
@@ -333,12 +346,6 @@ int main(int argc, char **argv)
 
 
     //Initialize first population (with zeros or some random values)
-    //TODO
-    // Set appropriate values for BLOCK and THREAD variables
-    // and implement kernel "initPopulation" that initializes 
-    // our population by random values from range -5.0 .. 5.0.
-    // InitCurand kernel initializes state for random number generator
-    // from curand GPU library (it is already implemented)
     initCurand<<<BLOCK, THREAD>>>(state_random);
     initPopulation<<<BLOCK, THREAD>>>(population_dev, state_random); //<-5, 5>
 
@@ -363,16 +370,12 @@ int main(int argc, char **argv)
 		crossover<<<THREAD,BLOCK>>>(population_dev, state_random);
         cudaDeviceSynchronize();
 
-		/** mutate population*/
+		/** mutate population and childrens in the whole population*/
         generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
-        //TODO
-        //implement body of the mutation kernel
 		mutation<<<THREAD,BLOCK>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
         cudaDeviceSynchronize();
 		
         /** evaluate fitness of individuals in population */
-        //TODO
-        //implement the body of the fitness kernel
 		fitness_evaluate<<<THREAD,BLOCK>>>(population_dev, points_dev, fitness_dev);
         cudaDeviceSynchronize();
         
@@ -382,14 +385,7 @@ int main(int argc, char **argv)
         setIndexes<<<THREAD,BLOCK>>>(indexes_dev);
         cudaDeviceSynchronize();
 
-        //TODO
-        //Use GPU enabled std-like library Thrust to sort key-value pairs.
-        //We need to sort our individuals according to their fitness value.
-        //To do so we sort fintess aray and keep track of their index in unsorted
-        //array so that we can reorder actual individuals accordingly.
-        //Hint1: use function sort_by_key hidden under thrust namespace   
-        //Hint2: use thrust vectors fitnesses_thrust and indexes_thrust
-        //       defined above as parameters      
+        thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
 
         selection<<<THREAD,BLOCK>>>(population_dev, newPopulation_dev, indexes_dev);
         cudaDeviceSynchronize();
@@ -426,8 +422,7 @@ int main(int argc, char **argv)
 
     //get solution from device to host
     float *solution = new float[INDIVIDUAL_LEN];
-    //TODO
-    //Copy individual with best fitness from GPU into solution
+    cudaMemcpy(solution, population_dev, INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
     check_cuda_error("Coping fitnesses_dev[0] to host");
     
     //solution is first individual of population with the best params of a polynomial    
