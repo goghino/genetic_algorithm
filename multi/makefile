@@ -16,6 +16,8 @@ mpi: mpi_version.cpp mpi_version.cu mpi_version.h
 	mpic++ -c mpi_version.cpp -g -o mpi_cpu.o
 	mpic++ -L/opt/cuda/lib64 -stdlib=libstdc++ mpi_gpu.o mpi_cpu.o -o $@ -lcurand -lcudart
 
+run: mpi
+	mpirun -np 3 ./mpi input5.txt
 
 clean:
 	rm -rf cpu gpu generator mpi

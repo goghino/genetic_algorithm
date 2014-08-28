@@ -94,9 +94,9 @@ int main(int argc, char **argv)
     int *genNumber_all;
     if(commRank == masterProcess){
         solution_all = new float[INDIVIDUAL_LEN*commSize];
-        bestFitness_all = new float[INDIVIDUAL_LEN];
-        time_all = new double[INDIVIDUAL_LEN];
-        genNumber_all = new int[INDIVIDUAL_LEN];
+        bestFitness_all = new float[commSize];
+        time_all = new double[commSize];
+        genNumber_all = new int[commSize];
     }
 
 

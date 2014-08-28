@@ -51,9 +51,13 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    //TODO
     // Initialize MPI state
+    // Allways use MPI_CHECK makro to check for errors
+    // (or check them manually)
     MPI_CHECK(MPI_Init(&argc, &argv));
 
+    //TODO
     // Get our MPI node number and node count
     int commSize, commRank;
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &commSize));
@@ -87,16 +91,17 @@ int main(int argc, char **argv)
     */
     int masterProcess = 0;
     
-    //storage for results from all processes at master process
+    //TODO
+    //Allocate storage for results from all processes at master process (rank==0)
     float *solution_all;
     float *bestFitness_all;
     double *time_all;
     int *genNumber_all;
     if(commRank == masterProcess){
-        solution_all = new float[INDIVIDUAL_LEN*commSize];
-        bestFitness_all = new float[INDIVIDUAL_LEN];
-        time_all = new double[INDIVIDUAL_LEN];
-        genNumber_all = new int[INDIVIDUAL_LEN];
+	//array for fittest individual from each GPU
+	
+	//best fitness, time to solution and generations cout 
+	//from each GPU
     }
 
 
@@ -105,17 +110,13 @@ int main(int argc, char **argv)
         //recv solutions from all slave processes and copy your own results
         for(int i=1; i<commSize; i++)
         {
-            //receive solution
-            MPI_CHECK(MPI_Recv(&solution_all[i*INDIVIDUAL_LEN], INDIVIDUAL_LEN, MPI_FLOAT,
-                      i, 11, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+	    //TODO
+            //receive solution from child processes
+	    //use solution_all buffer with correct offset
 
-            //receive fitness, time and generations count
-            MPI_CHECK(MPI_Recv(&bestFitness_all[i], 1, MPI_FLOAT,
-                      i, 22, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
-            MPI_CHECK(MPI_Recv(&time_all[i], 1, MPI_DOUBLE,
-                      i, 33, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
-            MPI_CHECK(MPI_Recv(&genNumber_all[i], 1, MPI_INT,
-                      i, 44, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
+	    //TODO
+            //receive fitness, time and generations count from child processes
+	    //(you will need 3 MPI calls)
         }
 
         //copy your own results
@@ -127,17 +128,15 @@ int main(int argc, char **argv)
         
     }else //send results to master process with rank 0
     {
-        //send solution
-        MPI_CHECK(MPI_Send(solution_o, INDIVIDUAL_LEN, MPI_FLOAT, 0, 11, MPI_COMM_WORLD));
+	//TODO
+        //send solution (array solution_o) to master process
         
-        //send fitness, time and generations count
-        MPI_CHECK(MPI_Send(&bestFitness_o, 1, MPI_FLOAT, 0, 22, MPI_COMM_WORLD));
-        MPI_CHECK(MPI_Send(&time_o, 1, MPI_DOUBLE, 0, 33, MPI_COMM_WORLD));
-        MPI_CHECK(MPI_Send(&genNumber_o, 1, MPI_INT, 0, 44, MPI_COMM_WORLD));
+	//TODO
+        //send fitness(bestFitness_o), time(time_o) and generations count(genNumber_o)
     }
 
     //find best solution amongst obtained results and print it
-    if(commRank == 0) {
+    if(commRank == masterProcess) {
         //select best result
         int bestSolution = findMinimum(bestFitness_all, commSize); 
 
@@ -169,7 +168,8 @@ int main(int argc, char **argv)
     }
 
 
-    MPI_CHECK(MPI_Finalize());
+    //TODO
+    //Finalize MPI communication
 }
 
 //------------------------------------------------------------------------------
