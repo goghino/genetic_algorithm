@@ -33,47 +33,55 @@ Finished! Found Solution:
 	c3 = -1.72443
 Best fitness: 4.30823
 Generations: 1500
-Time for CPU calculation equals 35.92 seconds
+Time for CPU calculation equals 35.92 seconds [16x smaller population than GPU]
 
 Ad 2.)
 $ ./gpu input.txt 
 Reading file - success!
 ------------------------------------------------------------
 Finished! Found Solution:
-	c0 = -5.00632
-	c1 = 2.97784
-	c2 = 4.04255
-	c3 = -2.00148
-Best fitness: 1.91559
+	c0 = -5.00638
+	c1 = 2.97788
+	c2 = 4.04224
+	c3 = -2.00125
+Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 1.92 seconds
+Time for GPU calculation equals 5.98 seconds [non-coalesced gl. memory access]
+
 
 Ad 3.)
-$ mpirun -np 3 ./mpi input.txt
+jkardos@tesla-cmc:~/certification/genetic_algorithm/code$ mpirun -np 4 ./mpi input.txt
 Reading file - success!
 Reading file - success!
 Reading file - success!
-Rank: 2
-Best fitness: 2.48737
-Generations: 1500
-Time for GPU calculation equals 1.9 seconds
-Rank: 1
-Best fitness: 3.09135
-Generations: 1500
-Time for GPU calculation equals 1.89 seconds
+Reading file - success!
 Rank: 0
-Best fitness: 3.12019
+Best fitness: 1.91608
 Generations: 1500
-Time for GPU calculation equals 2.26 seconds
+Time for GPU calculation equals 4.91 seconds [coalesced gl. memory access]
+Rank: 2
+Best fitness: 1.91568
+Generations: 1500
+Time for GPU calculation equals 6.69 seconds
+Rank: 1
+Best fitness: 1.91623
+Generations: 1500
+Time for GPU calculation equals 6.77 seconds
+Rank: 3
+Best fitness: 1.9162
+Generations: 1500
+Time for GPU calculation equals 6.82 seconds
+
 ------------------------------------------------------------
 Finished! Found Solution at process 2: 
-	c0 = -4.89853
-	c1 = 2.88693
-	c2 = 3.8161
-	c3 = -1.8629
-Best fitness: 2.48737
+	c0 = -5.00549
+	c1 = 2.9794
+	c2 = 4.04138
+	c3 = -2.00146
+Best fitness: 1.91568
 Generations: 1500
-Time for GPU calculation equals 1.9 seconds
+Time for GPU calculation equals 6.69 seconds
+
 
 
 Fitness is squared sum of difference between approximation function g(x) and
