@@ -347,8 +347,8 @@ void computeGA(float *points, int deviceID,
     float previousBestFitness = INFINITY;
 
 	while ( (generationNumber < maxGenerationNumber)
-            && (bestFitness > targetErr)
-            && (noChangeIter < maxConstIter) )
+            /*&& (bestFitness > targetErr)
+            && (noChangeIter < maxConstIter)*/ )
 	{
 		generationNumber++;
 	
