@@ -23,7 +23,7 @@ run:
 	./$(CPUEXECUTABLE) input.txt
 	./$(GPUEXECUTABLE) input.txt
 	gnuplot plot.gnu   #need to set found polynomial parameters manually
-    mpirun -np 3 ./mpi input5.txt
+	mpirun -np 3 ./mpi input5.txt
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
