@@ -8,13 +8,17 @@ GPUCFLAGS=-lcurand
 GPUSOURCES=gpu_version.cu
 GPUEXECUTABLE=gpu
 
-all:
-	g++ $(CPUSOURCES) -g -o $(CPUEXECUTABLE)
-	nvcc $(GPUSOURCES) -arch=sm_35 -g -o $(GPUEXECUTABLE) -lcurand
+all: cpu gpu mpi
+
+cpu: cpu_version.cpp
+	$(CPUCC) $(CPUSOURCES) -g -o $(CPUEXECUTABLE)
 	gcc -std=c99 generator.c -o generator
+	
+gpu: gpu_version.cu
+	$(GPUCC) $(GPUSOURCES) -arch=sm_35 -g -o $(GPUEXECUTABLE) -lcurand
 
 mpi: mpi_version.cpp mpi_version.cu mpi_version.h
-	nvcc -c mpi_version.cu -g -o mpi_gpu.o
+	$(GPUCC) -c mpi_version.cu -g -o mpi_gpu.o
 	mpic++ -c mpi_version.cpp -g -o mpi_cpu.o
 	mpic++ -L/opt/cuda/lib64 -stdlib=libstdc++ mpi_gpu.o mpi_cpu.o -o $@ -lcurand -lcudart
 
@@ -31,3 +35,4 @@ test:
 clean:
 	rm -rf $(GPUEXECUTABLE)
 	rm -rf $(CPUEXECUTABLE)
+	rm -rf mpi *.o

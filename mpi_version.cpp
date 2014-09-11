@@ -59,9 +59,9 @@ int main(int argc, char **argv)
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &commSize));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &commRank));
 
-    if(commSize > 3)
+    if(commSize > 4)
     {
-        cerr << "Cannot run with more than 3 processes!" << endl;
+        cerr << "Cannot run with more than 4 processes!" << endl;
         return -1;        
     }
 
