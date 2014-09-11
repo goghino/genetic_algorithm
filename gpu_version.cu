@@ -41,15 +41,16 @@ using namespace std;
 #define N_POINTS 100
 
 #define maxGenerationNumber 1500
-#define maxConstIter 100
+#define maxConstIter 150
 #define targetErr (N_POINTS*0.005)
 #define mu_individuals 0.5
 #define sigma_individuals 0.66
 #define mu_genes 0.56
 #define sigma_genes 0.75
 
-#define BLOCK 64
-#define THREAD (POPULATION_SIZE/BLOCK)
+#define THREAD 128
+#define BLOCK (POPULATION_SIZE/THREAD)
+
 
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
@@ -248,12 +249,15 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
 __global__ void initCurand(curandState *state)
 {
     int id = blockDim.x * blockIdx.x + threadIdx.x;
-    curand_init(6482, id, 0, &state[id]);
+    curand_init(1337, id, 0, &state[id]);
 }
 
 
 /**
-    Initializes initial population by random values. Use range <-5.0, 5.0>
+    Initializes initial population by random values. Use range <-50.0, 50.0>
+
+    Must provide greater state space (random num. interval), otherwise
+    solution is found in first few steps (i.e. <-5,5> if found in very first iter.)
 */
 __global__ void initPopulation(float *population, curandState *state)
 {
@@ -265,6 +269,8 @@ __global__ void initPopulation(float *population, curandState *state)
         for(int i=0; i<INDIVIDUAL_LEN; i++)
             population[id*INDIVIDUAL_LEN + i] = 10*curand_uniform(&localState) - 5;        
     }
+
+    state[id] = localState;
 }
 
 //------------------------------------------------------------------------------
@@ -402,7 +408,7 @@ int main(int argc, char **argv)
         check_cuda_error("Coping fitnesses_dev[0] to host");
         
         //check if the fitness is decreasing or if we are stuck at local minima
-        if(fabs(bestFitness - previousBestFitness) < 0.01f)
+        if(fabs(bestFitness - previousBestFitness) < 0.001f)
             noChangeIter++;
         else
             noChangeIter = 0;

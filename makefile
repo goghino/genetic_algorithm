@@ -10,13 +10,16 @@ GPUEXECUTABLE=gpu
 
 all:
 	g++ $(CPUSOURCES) -g -o $(CPUEXECUTABLE)
-	nvcc $(GPUSOURCES) -arch=sm_20 -g -o $(GPUEXECUTABLE) -lcurand
+	nvcc $(GPUSOURCES) -arch=sm_35 -g -o $(GPUEXECUTABLE) -lcurand
 	gcc -std=c99 generator.c -o generator
 run: 
 	./generator 100    #generate input file
 	./$(CPUEXECUTABLE) input.txt
 	./$(GPUEXECUTABLE) input.txt
 	gnuplot plot.gnu   #need to set found polynomial parameters manually
+
+test:
+	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
 
 clean:
 	rm -rf $(GPUEXECUTABLE)
