@@ -208,9 +208,7 @@ float *readData(const char *name, const int POINTS_CNT)
 // returns index of minimal value in the input array
 int findMinimum(float *array, int arrayLen){
 
-    //cout << "BF: "  << array[0] << " " << array[1] << " " << array[2] << endl;
-
-    int min = array[0];
+    float min = array[0];
     int minIdx = 0;
 
     for(int i=1; i<arrayLen; i++)
