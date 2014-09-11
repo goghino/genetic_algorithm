@@ -15,7 +15,7 @@ cpu: cpu_version.cpp
 	gcc -std=c99 generator.c -o generator
 	
 gpu: gpu_version.cu
-	$(GPUCC) $(GPUSOURCES) -arch=sm_35 -g -o $(GPUEXECUTABLE) -lcurand
+	$(GPUCC) $(GPUSOURCES) -g -o $(GPUEXECUTABLE) -lcurand
 
 mpi: mpi_version.cpp mpi_version.cu mpi_version.h
 	$(GPUCC) -c mpi_version.cu -g -o mpi_gpu.o
@@ -31,6 +31,9 @@ run:
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
+
+bench:
+	CUDA_VISIBLE_DEVICES=0 ./gpu input.txt
 
 clean:
 	rm -rf $(GPUEXECUTABLE)

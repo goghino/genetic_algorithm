@@ -373,27 +373,27 @@ int main(int argc, char **argv)
 		generationNumber++;
 	
         /** crossover first half of the population and create new population */
-		crossover<<<THREAD,BLOCK>>>(population_dev, state_random);
+		crossover<<<BLOCK, THREAD>>>(population_dev, state_random);
         cudaDeviceSynchronize();
 
 		/** mutate population and childrens in the whole population*/
         generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
-		mutation<<<THREAD,BLOCK>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
+		mutation<<<BLOCK, THREAD>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
         cudaDeviceSynchronize();
 		
         /** evaluate fitness of individuals in population */
-		fitness_evaluate<<<THREAD,BLOCK>>>(population_dev, points_dev, fitness_dev);
+		fitness_evaluate<<<BLOCK, THREAD>>>(population_dev, points_dev, fitness_dev);
         cudaDeviceSynchronize();
         
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
             fittest individuals first in population  */
-        setIndexes<<<THREAD,BLOCK>>>(indexes_dev);
+        setIndexes<<<BLOCK, THREAD>>>(indexes_dev);
         cudaDeviceSynchronize();
 
         thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
 
-        selection<<<THREAD,BLOCK>>>(population_dev, newPopulation_dev, indexes_dev);
+        selection<<<BLOCK, THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
         cudaDeviceSynchronize();
         
         //swap populations        

@@ -46,8 +46,9 @@ using namespace std;
 #define mu_genes 0.56
 #define sigma_genes 0.75
 
-#define BLOCK (POPULATION_SIZE/THREAD)
 #define THREAD 128
+#define BLOCK (POPULATION_SIZE/THREAD)
+
 
 /**
     An individual fitness function is the difference between measured f(x) and
