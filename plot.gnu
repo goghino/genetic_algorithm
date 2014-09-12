@@ -19,7 +19,14 @@ c1g = 2.97
 c0g = -5.00
 g_gpu(x) = c3g*x**3 + c2g*x**2 + c1g*x + c0g
 
+c3m = -2.0
+c2m = 4.04
+c1m = 2.98
+c0m = -5.00
+g_mpi(x) = c3m*x**3 + c2m*x**2 + c1m*x + c0m
+
 plot "input.txt" title "Noisy data", \
 f(x) title "generating function f(x)", \
-g_cpu(x) title "CPU approximated f'(x)",\
-g_gpu(x) title "GPU approximated f''(x)"
+g_cpu(x) title "CPU approximated g(x)",\
+g_gpu(x) title "GPU approximated g(x)",\
+g_mpi(x) title "MPI+GPUs approximated g(x)"
