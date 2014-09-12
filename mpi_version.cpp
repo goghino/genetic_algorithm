@@ -107,9 +107,13 @@ int main(int argc, char **argv)
         cout << "Time for GPU calculation equals \033[35m" \
             << time_o << " seconds\033[0m" << endl;
 
+    int t1, t2;
+
 
     if(commRank == masterProcess)
     {
+        t1 = clock(); //start timer
+
         //recv solutions from all slave processes and copy your own results
         for(int i=1; i<commSize; i++)
         {
@@ -125,6 +129,8 @@ int main(int argc, char **argv)
             MPI_CHECK(MPI_Recv(&genNumber_all[i], 1, MPI_INT,
                       i, 44, MPI_COMM_WORLD, MPI_STATUS_IGNORE));
         }
+
+        t2 = clock(); //stop timer
 
         //copy your own results
         for(int i=0; i<INDIVIDUAL_LEN; i++)
@@ -150,7 +156,7 @@ int main(int argc, char **argv)
         int bestSolution = findMinimum(bestFitness_all, commSize); 
 
         cout << "------------------------------------------------------------" << endl;    
-        cout << "Finished! Found Solution at process " << bestSolution << ": " << endl;       
+        cout << "Finished! Found Solution at process #" << bestSolution << ": " << endl;       
 
         //solution with the best params of a polynomial 
         for(int i=0; i<INDIVIDUAL_LEN; i++){   
@@ -163,6 +169,9 @@ int main(int argc, char **argv)
 
         cout << "Time for GPU calculation equals \033[35m" \
             << time_all[bestSolution] << " seconds\033[0m" << endl;
+
+        cout << "Time for communication equals \033[35m" \
+            << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
     }
 
