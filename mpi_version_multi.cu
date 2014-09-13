@@ -251,8 +251,9 @@ __global__ void initPopulation(float *population, curandState *state)
 */
 void doInitPopulation(float *population_dev, curandState *state_random)
 {
-    initCurand<<<BLOCK, THREAD>>>(state_random);
-    initPopulation<<<BLOCK, THREAD>>>(population_dev, state_random); //<-5, 5>
+    int block = POPULATION_SIZE/THREAD;
+    initCurand<<<block, THREAD>>>(state_random);
+    initPopulation<<<block, THREAD>>>(population_dev, state_random); //<-5, 5>
 }
 
 /**
@@ -260,7 +261,8 @@ void doInitPopulation(float *population_dev, curandState *state_random)
 */
 void doCrossover(float *population_dev, curandState* state_random)
 {
-    crossover<<<BLOCK,THREAD>>>(population_dev, state_random);
+    int block = POPULATION_SIZE/THREAD;
+    crossover<<<block,THREAD>>>(population_dev, state_random);
     cudaDeviceSynchronize();
 }
 
@@ -301,13 +303,15 @@ void doSelection(thrust::device_ptr<float>fitnesses_thrust,
                  thrust::device_ptr<int>indexes_thrust, int *indexes_dev,
                  float *population_dev, float* newPopulation_dev)
 {
-    setIndexes<<<BLOCK,THREAD>>>(indexes_dev);
+    int block = POPULATION_SIZE/THREAD;
+
+    setIndexes<<<block,THREAD>>>(indexes_dev);
     cudaDeviceSynchronize();
 
     //sort fitness array
     thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
 
     //reorder population according to fitness values
-    selection<<<BLOCK,THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
+    selection<<<block,THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
     cudaDeviceSynchronize();
 }

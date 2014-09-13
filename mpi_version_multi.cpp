@@ -43,7 +43,8 @@ using namespace std;
     Generates probabilities for mutation of individuals and their genes
     into arrays in device global memory
 */
-void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator);
+void generateMutProbab(float** mutIndivid, float **mutGene,
+                       curandGenerator_t generator, int size);
 
 /*
     ---------------------------------------------------------
@@ -118,7 +119,7 @@ int main(int argc, char **argv)
         check_cuda_error("Error allocating device memory");
     }else{
         //TODO
-        cudaMalloc(&population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN * sizeof(float));
+        cudaMalloc(&population_dev, size * INDIVIDUAL_LEN * sizeof(float));
         check_cuda_error("Error allocating device memory");    
     }
 
@@ -129,19 +130,19 @@ int main(int argc, char **argv)
         check_cuda_error("Error allocating device memory");
     }else{
         //TODO
-        cudaMalloc(&fitness_dev, POPULATION_SIZE/commSize*sizeof(float));
+        cudaMalloc(&fitness_dev, size * sizeof(float));
         check_cuda_error("Error allocating device memory");   
     }
 
     //curand random states
     curandState *state_random;
     if(commRank == 0){
-        cudaMalloc((void **)&state_random,POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(curandState));
+        cudaMalloc((void **)&state_random,POPULATION_SIZE * sizeof(curandState));
         check_cuda_error("Allocating memory for curandState");
     }else{
         //TODO
         cudaMalloc( (void **)&state_random,
-                    POPULATION_SIZE/commSize * INDIVIDUAL_LEN * sizeof(curandState));
+                    size * sizeof(curandState));
         check_cuda_error("Allocating memory for curandState");
     
     }
@@ -149,12 +150,12 @@ int main(int argc, char **argv)
     //mutation probabilities, mutation done only locally
     //TODO
     float* mutIndivid_d;
-    cudaMalloc((void **) &mutIndivid_d,POPULATION_SIZE/commSize*sizeof(float));
+    cudaMalloc((void **) &mutIndivid_d, size * sizeof(float));
     check_cuda_error("Allocating memory in mutIndivid_d");
 
     float* mutGene_d;
     //TODO
-    cudaMalloc((void **)&mutGene_d,POPULATION_SIZE/commSize*INDIVIDUAL_LEN*sizeof(float));
+    cudaMalloc((void **)&mutGene_d, size * INDIVIDUAL_LEN*sizeof(float));
     check_cuda_error("Allocating memory in mutGene_d");
 
     //create PRNG for generating mutation probabilities
@@ -163,7 +164,7 @@ int main(int argc, char **argv)
     curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
     check_cuda_error("Error in curandCreateGenerator");
 
-    curandSetPseudoRandomGeneratorSeed(generator, time(NULL));
+    curandSetPseudoRandomGeneratorSeed(generator, time(NULL)/(commRank+1));
     check_cuda_error("Error in curandSeed");
 
     //key value for sorting, sorting done only on master process
@@ -186,7 +187,8 @@ int main(int argc, char **argv)
     */
 
     //Initialize first population (with zeros or some random values)
-    doInitPopulation(population_dev, state_random);
+    if(commRank == 0)
+        doInitPopulation(population_dev, state_random);
     
     int t1 = clock(); //start timer
 
@@ -207,6 +209,7 @@ int main(int argc, char **argv)
     		doCrossover(population_dev, state_random);
 
         /** distribute population to all processes to perform mutation and fitness eval*/
+        //TODO
         MPI_CHECK(
             MPI_Scatter(population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
                         population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
@@ -214,7 +217,7 @@ int main(int argc, char **argv)
         );
 
 		/** mutate population and childrens in the local portion of population*/
-        generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
+        generateMutProbab(&mutIndivid_d, &mutGene_d, generator, size);
 		doMutation(population_dev, state_random, mutIndivid_d, mutGene_d, size);
 
         /** evaluate fitness of individuals in local portion of population */
@@ -228,8 +231,8 @@ int main(int argc, char **argv)
         );
 
         MPI_CHECK(
-            MPI_Gather(fitness_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
-                       fitness_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
+            MPI_Gather(fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
+                       fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
                        0, MPI_COMM_WORLD)
         );
 
@@ -257,6 +260,7 @@ int main(int argc, char **argv)
             else
                 noChangeIter = 0;
             previousBestFitness = bestFitness;
+            cout << "Best fitness: " << bestFitness << endl;
 
             //log message
             #if defined(DEBUG)
@@ -307,15 +311,34 @@ int main(int argc, char **argv)
         Free memory
     */
     cudaFree(points_dev);//input points
+    check_cuda_error("points free");
+    
     cudaFree(fitness_dev);//fitness array
-    cudaFree(indexes_dev);//key for sorting
+    check_cuda_error("fitness free");
+
+    if(commRank == 0){
+        cudaFree(indexes_dev);//key for sorting
+        check_cuda_error("indexes free");
+    }
+
     cudaFree(population_dev);
-    cudaFree(newPopulation_dev);
+    check_cuda_error("population free");
+
+    if(commRank == 0){
+        cudaFree(newPopulation_dev);
+        check_cuda_error("newPopulation free");
+    }
     cudaFree(state_random);//state curand
+    check_cuda_error("state free");
+
     cudaFree(mutIndivid_d);//mutation probability
+    check_cuda_error("mutInd free");
+
     cudaFree(mutGene_d);//mutation probability
+    check_cuda_error("mutGene free");
 
     curandDestroyGenerator(generator);
+    check_cuda_error("Destroying generator");
 
     cudaDeviceReset();
     check_cuda_error("Resseting device");
@@ -353,16 +376,16 @@ float *readData(const char *name, const int POINTS_CNT)
     Generates probabilities for mutation of individuals and their genes
     into arrays in device global memory
 */
-void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator)
+void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator, int size)
 {
     //mutation rate of individuals
     curandGenerateNormal(generator, *mutIndivid,
-                        POPULATION_SIZE, mu_individuals, sigma_individuals);
+                        size, mu_individuals, sigma_individuals);
     check_cuda_error("Error in normalGenerating 1");
 
     //mutation rate of each gene
     curandGenerateNormal(generator, *mutGene,
-                        POPULATION_SIZE*INDIVIDUAL_LEN, mu_genes, sigma_genes);
+                        size*INDIVIDUAL_LEN, mu_genes, sigma_genes);
     check_cuda_error("Error in normalGenerating 2");
 }
 
