@@ -53,7 +53,7 @@ Generations: 1500
 Time for GPU calculation equals 5.98 seconds [non-coalesced gl. memory access]
 
 
-Ad 3.)
+Ad 3.a)
 jkardos@tesla-cmc:~/certification/genetic_algorithm/code$ mpirun -np 4 ./mpi input.txt
 Reading file - success!
 Reading file - success!
@@ -85,3 +85,21 @@ Best fitness: 1.9157
 Generations: 1500
 Time for GPU calculation equals 6.78 seconds
 Time for communication equals 1.47 seconds
+
+
+Ad 3.b)
+jkardos@tesla-cmc:~/certification/genetic_algorithm/code$ make multirun
+/home/jkardos/openmpi-1.8.1/install/bin/mpirun -np 4 /home/jkardos/certification/genetic_algorithm/code/multi /home/jkardos/certification/genetic_algorithm/code/input.txt
+Reading file - success!
+Reading file - success!
+Reading file - success!
+Reading file - success!
+------------------------------------------------------------
+Finished! Found Solution: 
+	c0 = -5.00467
+	c1 = 2.97352
+	c2 = 4.04092
+	c3 = -1.99897
+Best fitness: 1.91614
+Generations: 1500
+Time for GPU calculation + communication equals 6.56 seconds

@@ -51,12 +51,43 @@ void check_cuda_error(const char *message)
 }
 
 
+//------------------------------------------------------------------------------
+//                       CUDA Kernel functions
+//------------------------------------------------------------------------------
+
+/**
+    Initializes seed for CUDA random generator
+*/
+__global__ void initCurand(curandState *state)
+{
+    int id = blockDim.x * blockIdx.x + threadIdx.x;
+    curand_init(6482, id, 0, &state[id]);
+}
+
+
+/**
+    Initializes initial population by random values. Use range <-5.0, 5.0>
+*/
+__global__ void initPopulation(float *population, curandState *state)
+{
+    int id = blockDim.x * blockIdx.x + threadIdx.x;
+    curandState localState = state[id];
+
+    if(id < POPULATION_SIZE)
+    {
+        for(int i=0; i<INDIVIDUAL_LEN; i++)
+            population[id + i*POPULATION_SIZE] = 10*curand_uniform(&localState) - 5;        
+    }
+}
+
 /**
     An individual fitness function is the difference between measured f(x) and
     approximated polynomial g(x), built using individual's coeficients,
     evaluated on input data points.
 
     Smaller value means bigger fitness
+
+    @size - number of individuals in current (sub)population
 */
 __global__ void fitness_evaluate(float *individuals, float *points, float *fitness, int size)
 {
@@ -75,7 +106,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
         //for every polynomial parameter: Ci * x^(order)
 		for (int order=0; order < INDIVIDUAL_LEN; order++)
 		{
-			f_approx += individuals[idx + order*POPULATION_SIZE] * pow(points[pt], order);
+			f_approx += individuals[idx + order*size] * pow(points[pt], order);
 		}
 
 		sumError += pow(f_approx - points[N_POINTS+pt], 2);
@@ -144,6 +175,7 @@ __global__ void crossover(float *population_dev, curandState *state)
     genes is computed before calling this kernel
     @mutGene
     @mutIndivid
+    @size - number of individuals in current (sub)population
 
     For example(binary representation of genes):
     individual == [1 1 1 1]
@@ -170,7 +202,7 @@ __global__ void mutation(float *individuals, curandState *state,
 
     for(int j=0; j<INDIVIDUAL_LEN; j++)
     {
-        int flip_idx = idx + j*POPULATION_SIZE;
+        int flip_idx = idx + j*size;
         //probability of mutating gene 
         if(mutGene[flip_idx] < mutationRate) {
             individuals[flip_idx] += 0.01*(2*curand_uniform(&localState)-1);
@@ -217,31 +249,8 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
     }
 }
 
-/**
-    Initializes seed for CUDA random generator
-*/
-__global__ void initCurand(curandState *state)
-{
-    int id = blockDim.x * blockIdx.x + threadIdx.x;
-    curand_init(6482, id, 0, &state[id]);
-}
 
-
-/**
-    Initializes initial population by random values. Use range <-5.0, 5.0>
-*/
-__global__ void initPopulation(float *population, curandState *state)
-{
-    int id = blockDim.x * blockIdx.x + threadIdx.x;
-    curandState localState = state[id];
-
-    if(id < POPULATION_SIZE)
-    {
-        for(int i=0; i<INDIVIDUAL_LEN; i++)
-            population[id + i*POPULATION_SIZE] = 10*curand_uniform(&localState) - 5;        
-    }
-}
-
+//------------------------------------------------------------------------------
 //                 Encapsulating GPU functions for kernel calls
 //------------------------------------------------------------------------------
 

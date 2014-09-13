@@ -110,6 +110,7 @@ int main(int argc, char **argv)
 
     //arrays to hold population    
     float *population_dev;
+    float *population_dev_local;
     float *newPopulation_dev;
     if(commRank == 0){
         cudaMalloc(&population_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
@@ -117,11 +118,10 @@ int main(int argc, char **argv)
 
         cudaMalloc(&newPopulation_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
         check_cuda_error("Error allocating device memory");
-    }else{
-        //TODO
-        cudaMalloc(&population_dev, size * INDIVIDUAL_LEN * sizeof(float));
-        check_cuda_error("Error allocating device memory");    
     }
+
+    cudaMalloc(&population_dev_local, size * INDIVIDUAL_LEN * sizeof(float));
+    check_cuda_error("Error allocating device memory"); 
 
     //arrays that keeps fitness of individuals withing current population
     float *fitness_dev;    
@@ -208,39 +208,53 @@ int main(int argc, char **argv)
         if(commRank == 0)
     		doCrossover(population_dev, state_random);
 
-        /** distribute population to all processes to perform mutation and fitness eval*/
+
+        /** Distribute population to all processes to perform mutation and fitness eval.
+            Population is stored in transposed matrix to access global memory in coalesced
+            pattern - first POPULATION_SIZE entries are first aleles of population,
+            next POPULATION_SIZE entries are second aleles and so on...
+            We need to perform INDIVIDUAL_LEN MPI scatter calls to distribude each
+            of these bulks to mpi processes  */
         //TODO
-        MPI_CHECK(
-            MPI_Scatter(population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
-                        population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
-                        0, MPI_COMM_WORLD)
-        );
+        int i;
+        for(i=0; i<INDIVIDUAL_LEN; i++){
+            MPI_CHECK(
+                MPI_Scatter(
+                    &population_dev[i*POPULATION_SIZE], size, MPI_FLOAT,
+                    &population_dev_local[i*size], size, MPI_FLOAT,
+                    0, MPI_COMM_WORLD)
+            );
+        }
 
 		/** mutate population and childrens in the local portion of population*/
         generateMutProbab(&mutIndivid_d, &mutGene_d, generator, size);
-		doMutation(population_dev, state_random, mutIndivid_d, mutGene_d, size);
+		doMutation(population_dev_local, state_random, mutIndivid_d, mutGene_d, size);
 
         /** evaluate fitness of individuals in local portion of population */
-		doFitness_evaluate(population_dev, points_dev, fitness_dev, size);
+		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, size);
+
 
         /** gather population & fitnesses back to master process to perform selection*/
-        MPI_CHECK(
-            MPI_Gather(population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
-                       population_dev, POPULATION_SIZE/commSize * INDIVIDUAL_LEN, MPI_FLOAT,
-                       0, MPI_COMM_WORLD)
-        );
+        for(i=0; i<INDIVIDUAL_LEN; i++){
+            MPI_CHECK(
+                MPI_Gather(
+                    &population_dev_local[i*size], size, MPI_FLOAT,
+                    &population_dev[i*POPULATION_SIZE], size, MPI_FLOAT,
+                    0, MPI_COMM_WORLD)
+            );
+        }
 
         MPI_CHECK(
             MPI_Gather(fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
                        fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
                        0, MPI_COMM_WORLD)
         );
-
-        
+      
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
             fittest individuals first in population  */
         if(commRank == 0) {
+
             doSelection(fitnesses_thrust, indexes_thrust, indexes_dev,
                         population_dev, newPopulation_dev);    
 
@@ -260,7 +274,7 @@ int main(int argc, char **argv)
             else
                 noChangeIter = 0;
             previousBestFitness = bestFitness;
-            cout << "Best fitness: " << bestFitness << endl;
+            //cout << "Best fitness: " << bestFitness << endl;
 
             //log message
             #if defined(DEBUG)
@@ -301,7 +315,7 @@ int main(int argc, char **argv)
         cout << "Best fitness: " << bestFitness << endl \
         << "Generations: " << generationNumber << endl;
 
-        cout << "Time for GPU calculation equals \033[35m" \
+        cout << "Time for GPU calculation + communication equals \033[35m" \
             << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
     }
@@ -319,10 +333,13 @@ int main(int argc, char **argv)
     if(commRank == 0){
         cudaFree(indexes_dev);//key for sorting
         check_cuda_error("indexes free");
-    }
 
-    cudaFree(population_dev);
-    check_cuda_error("population free");
+        cudaFree(population_dev);
+        check_cuda_error("population free");
+    }
+   
+    cudaFree(population_dev_local);
+    check_cuda_error("population local free");
 
     if(commRank == 0){
         cudaFree(newPopulation_dev);
