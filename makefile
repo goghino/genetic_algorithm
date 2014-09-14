@@ -6,7 +6,7 @@ CPUCFLAGS=
 GPUCC=nvcc
 GPUCFLAGS=
 CUDA_DIR=/opt/cuda
-CULIBS=-lcurand -lcudart
+CULIBS=-lcurand -lcudart -lnvToolsExt
 
 #MPI/MPI+CUDA specific configurations
 MPICC=mpic++
@@ -39,6 +39,12 @@ multi: mpi_version_multi.cu mpi_version_multi.cpp mpi_version_multi.h
 multirun:
 	$(MPICU_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
+analyze:
+	amplxe-cl -collect hotspots -result-dir result $(MPICU_RUN) -n 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
+
+#$(MPICU_RUN) -np 4 amplxe-cl -r my_result --collect hotspots $(WORK_DIR)/multi $(WORK_DIR)/input.txt
+
+
 #more like demonstration how to run executables than actual benchmark
 run: 
 	./generator 100    #generate input file
@@ -50,6 +56,7 @@ run:
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
+
 
 #difference between Kepler and Fermi performance
 bench:

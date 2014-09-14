@@ -29,6 +29,7 @@ Outputs:
 #include <time.h>
 #include <algorithm>
 
+#include "nvToolsExt.h"
 #include "mpi_version_multi.h"
 
 using namespace std;
@@ -217,6 +218,7 @@ int main(int argc, char **argv)
             of these bulks to mpi processes  */
         //TODO
         int i;
+        nvtxRangePushA("Scatter");
         for(i=0; i<INDIVIDUAL_LEN; i++){
             MPI_CHECK(
                 MPI_Scatter(
@@ -225,6 +227,7 @@ int main(int argc, char **argv)
                     0, MPI_COMM_WORLD)
             );
         }
+        nvtxRangePop();
 
 		/** mutate population and childrens in the local portion of population*/
         generateMutProbab(&mutIndivid_d, &mutGene_d, generator, size);
@@ -235,6 +238,7 @@ int main(int argc, char **argv)
 
 
         /** gather population & fitnesses back to master process to perform selection*/
+        nvtxRangePushA("Gather 1");
         for(i=0; i<INDIVIDUAL_LEN; i++){
             MPI_CHECK(
                 MPI_Gather(
@@ -243,12 +247,15 @@ int main(int argc, char **argv)
                     0, MPI_COMM_WORLD)
             );
         }
+        nvtxRangePop();
 
+        nvtxRangePushA("Gather 2");
         MPI_CHECK(
             MPI_Gather(fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
                        fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
                        0, MPI_COMM_WORLD)
         );
+        nvtxRangePop();
       
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
