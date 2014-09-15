@@ -12,7 +12,7 @@
 
 // Emulate multi-process MPI on a single GPU, e.g. a laptop.
 // Uncomment if-clause to disable.
-// #if 0
+#if 0
 #define cudaSetDevice(deviceID) cudaSetDevice(0)
-// #endif
+#endif
 
