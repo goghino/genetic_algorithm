@@ -426,9 +426,6 @@ void computeGA(float *points, int deviceID,
     cudaFree(mutGene_d);//mutation probability
 
     curandDestroyGenerator(generator);
-
-    cudaDeviceReset();
-    check_cuda_error("Resseting device");
 }
 
 //------------------------------------------------------------------------------
