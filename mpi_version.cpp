@@ -187,8 +187,9 @@ int main(int argc, char **argv)
         delete [] genNumber_all;
     }
 
-
     MPI_CHECK(MPI_Finalize());
+
+	return 0;
 }
 
 //------------------------------------------------------------------------------

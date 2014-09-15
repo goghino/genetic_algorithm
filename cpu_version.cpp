@@ -303,6 +303,8 @@ int main(int argc, char **argv)
     delete [] population;
     delete [] newPopulation;
     delete [] points;
+
+	return 0;
 }
 
 //------------------------------------------------------------------------------

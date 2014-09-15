@@ -68,7 +68,7 @@ int main(int argc, char **argv)
     int commSize, commRank;
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &commSize));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &commRank));
-    int deviceID = 0;
+    int deviceID = commRank;
 
     if(commSize > 4)
     {
@@ -398,13 +398,11 @@ int main(int argc, char **argv)
     curandDestroyGenerator(generator);
     check_cuda_error("Destroying generator");
 
-    cudaDeviceReset();
-    check_cuda_error("Resseting device");
-
     MPI_CHECK(MPI_Type_free(&columntype));
 
-
     MPI_CHECK(MPI_Finalize());
+    
+    return 0;
 }
 
 //------------------------------------------------------------------------------

@@ -445,6 +445,8 @@ int main(int argc, char **argv)
     cudaFree(mutGene_d);//mutation probability
 
     curandDestroyGenerator(generator);
+    
+    return 0;
 }
 
 //------------------------------------------------------------------------------
