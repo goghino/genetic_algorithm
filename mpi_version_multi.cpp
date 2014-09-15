@@ -32,6 +32,8 @@ Outputs:
 #include "nvToolsExt.h"
 #include "mpi_version_multi.h"
 
+#include "config.h"
+
 using namespace std;
 
 // Error handling macros
@@ -66,7 +68,7 @@ int main(int argc, char **argv)
     int commSize, commRank;
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &commSize));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &commRank));
-    int deviceID = commRank;
+    int deviceID = 0;
 
     if(commSize > 4)
     {

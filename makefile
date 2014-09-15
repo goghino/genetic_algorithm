@@ -31,19 +31,19 @@ gpu: gpu_version.cu
 mpi: mpi_gpu.o mpi_cpu.o
 	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
-mpi_gpu.o: mpi_version.cu mpi_version.h
+mpi_gpu.o: mpi_version.cu mpi_version.h config.h
 	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
-mpi_cpu.o: mpi_version.cpp mpi_version.h
+mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
 	$(MPICC) $(CPUCFLAGS) -c $< -o $@
 
 multi: mpi_gpu_multi.o mpi_cpu_multi.o
 	$(MPICU) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
-mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h
+mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h config.h
 	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
-mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h
+mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h
 	$(MPICU) $(CPUCFLAGS) -I$(CUDA_DIR)/include -c $< -o $@
 
 #cuda aware launch of multi-gpu application
