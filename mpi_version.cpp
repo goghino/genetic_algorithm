@@ -31,6 +31,8 @@ Outputs:
 
 #include "mpi_version.h"
 
+#include "config.h"
+
 using namespace std;
 
 // Error handling macros
