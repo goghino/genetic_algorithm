@@ -74,6 +74,22 @@ int main(int argc, char **argv)
         return -1;        
     }
 
+    //size of local portion of data
+    //TODO population%commSize  != 0
+    int local_size = POPULATION_SIZE/commSize;
+
+    // Create derived datatype for MPI communication
+    // Datatype represents one column from population matrix which
+    // corresponts to portion of data distributed to all processes.
+    MPI_Datatype column;    
+    MPI_Datatype columntype;
+
+    MPI_CHECK(MPI_Type_vector(INDIVIDUAL_LEN, local_size, POPULATION_SIZE, MPI_FLOAT, &column)); 
+    MPI_CHECK(MPI_Type_commit(&column));
+
+    MPI_CHECK(MPI_Type_create_resized(column, 0, local_size*sizeof(float), &columntype));
+    MPI_CHECK(MPI_Type_commit(&columntype));    
+
     //read input data
     //points are the data to approximate by a polynomial
     float *points = readData(argv[1], N_POINTS);
@@ -104,11 +120,6 @@ int main(int argc, char **argv)
     check_cuda_error("Error copying data");
 
 
-    //size of local portion of data
-    //TODO population%commSize  != 0
-    int size = POPULATION_SIZE/commSize;
-
-
     //arrays to hold population    
     float *population_dev;
     float *population_dev_local;
@@ -121,7 +132,7 @@ int main(int argc, char **argv)
         check_cuda_error("Error allocating device memory");
     }
 
-    cudaMalloc(&population_dev_local, size * INDIVIDUAL_LEN * sizeof(float));
+    cudaMalloc(&population_dev_local, local_size * INDIVIDUAL_LEN * sizeof(float));
     check_cuda_error("Error allocating device memory"); 
 
     //arrays that keeps fitness of individuals withing current population
@@ -131,7 +142,7 @@ int main(int argc, char **argv)
         check_cuda_error("Error allocating device memory");
     }else{
         //TODO
-        cudaMalloc(&fitness_dev, size * sizeof(float));
+        cudaMalloc(&fitness_dev, local_size * sizeof(float));
         check_cuda_error("Error allocating device memory");   
     }
 
@@ -143,7 +154,7 @@ int main(int argc, char **argv)
     }else{
         //TODO
         cudaMalloc( (void **)&state_random,
-                    size * sizeof(curandState));
+                    local_size * sizeof(curandState));
         check_cuda_error("Allocating memory for curandState");
     
     }
@@ -151,12 +162,12 @@ int main(int argc, char **argv)
     //mutation probabilities, mutation done only locally
     //TODO
     float* mutIndivid_d;
-    cudaMalloc((void **) &mutIndivid_d, size * sizeof(float));
+    cudaMalloc((void **) &mutIndivid_d, local_size * sizeof(float));
     check_cuda_error("Allocating memory in mutIndivid_d");
 
     float* mutGene_d;
     //TODO
-    cudaMalloc((void **)&mutGene_d, size * INDIVIDUAL_LEN*sizeof(float));
+    cudaMalloc((void **)&mutGene_d, local_size * INDIVIDUAL_LEN*sizeof(float));
     check_cuda_error("Allocating memory in mutGene_d");
 
     //create PRNG for generating mutation probabilities
@@ -214,45 +225,66 @@ int main(int argc, char **argv)
             Population is stored in transposed matrix to access global memory in coalesced
             pattern - first POPULATION_SIZE entries are first aleles of population,
             next POPULATION_SIZE entries are second aleles and so on...
-            We need to perform INDIVIDUAL_LEN MPI scatter calls to distribude each
-            of these bulks to mpi processes  */
+            
+            We use mpi_type_vector to distribude local_size column-stripes from
+            population matrix to each process  */
         //TODO
+
         int i;
         nvtxRangePushA("Scatter");
-        for(i=0; i<INDIVIDUAL_LEN; i++){
             MPI_CHECK(
                 MPI_Scatter(
-                    &population_dev[i*POPULATION_SIZE], size, MPI_FLOAT,
-                    &population_dev_local[i*size], size, MPI_FLOAT,
+                    population_dev, 1, columntype,
+                    population_dev_local, local_size*INDIVIDUAL_LEN, MPI_FLOAT,
                     0, MPI_COMM_WORLD)
             );
-        }
         nvtxRangePop();
 
+
 		/** mutate population and childrens in the local portion of population*/
-        generateMutProbab(&mutIndivid_d, &mutGene_d, generator, size);
-		doMutation(population_dev_local, state_random, mutIndivid_d, mutGene_d, size);
+        generateMutProbab(&mutIndivid_d, &mutGene_d, generator, local_size);
+		doMutation(population_dev_local, state_random, mutIndivid_d, mutGene_d, local_size);
 
         /** evaluate fitness of individuals in local portion of population */
-		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, size);
+		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, local_size);
 
 
         /** gather population & fitnesses back to master process to perform selection*/
         nvtxRangePushA("Gather 1");
+        /*
+        //Gather with MPI_type_vector causes crash:
+
+        [tesla-cmc:8669] *** An error occurred in MPI_Gather
+        [tesla-cmc:8669] *** reported by process [2138308609,0]
+        [tesla-cmc:8669] *** on communicator MPI_COMM_WORLD
+        [tesla-cmc:8669] *** MPI_ERR_IN_STATUS: error code in status
+        [tesla-cmc:8669] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
+        [tesla-cmc:8669] ***    and potentially your MPI job)
+        make: *** [multirun] Error 18
+
+        MPI_CHECK(
+            MPI_Gather(
+                population_dev_local, local_size*INDIVIDUAL_LEN, MPI_FLOAT,
+                population_dev, 1, columntype,
+                0, MPI_COMM_WORLD)
+        );
+        */
+
         for(i=0; i<INDIVIDUAL_LEN; i++){
             MPI_CHECK(
                 MPI_Gather(
-                    &population_dev_local[i*size], size, MPI_FLOAT,
-                    &population_dev[i*POPULATION_SIZE], size, MPI_FLOAT,
+                    &population_dev_local[i*local_size], local_size, MPI_FLOAT,
+                    &population_dev[i*POPULATION_SIZE], local_size, MPI_FLOAT,
                     0, MPI_COMM_WORLD)
             );
         }
+
         nvtxRangePop();
 
         nvtxRangePushA("Gather 2");
         MPI_CHECK(
-            MPI_Gather(fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
-                       fitness_dev, POPULATION_SIZE/commSize, MPI_FLOAT,
+            MPI_Gather(fitness_dev, local_size, MPI_FLOAT,
+                       fitness_dev, local_size, MPI_FLOAT,
                        0, MPI_COMM_WORLD)
         );
         nvtxRangePop();
@@ -366,6 +398,8 @@ int main(int argc, char **argv)
 
     cudaDeviceReset();
     check_cuda_error("Resseting device");
+
+    MPI_CHECK(MPI_Type_free(&columntype));
 
 
     MPI_CHECK(MPI_Finalize());
