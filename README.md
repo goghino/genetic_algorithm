@@ -40,7 +40,7 @@ Generations: 1500
 Time for CPU calculation equals 35.92 seconds [16x smaller population than GPU]
 ```
 
-Ad 2.)
+Ad 2)
 
 ```
 $ ./gpu input.txt 
