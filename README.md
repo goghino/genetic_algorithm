@@ -1,4 +1,4 @@
-Implementation of GA for approximation of noisy data by 3rd order polynomial function.
+### Implementation of GA for approximation of noisy data by 3rd order polynomial function.
 
 (c) Juraj Kardos, 2014
 
@@ -20,9 +20,9 @@ c3 = -2;
 
 This repository consists of three different impmlementations:
 
-1) CPU serial code
-2) GPU accelerated code
-3) MPI code using multiple GPUs
+1. CPU serial code
+2. GPU accelerated code
+3. MPI code using multiple GPUs
 
 Ad 1)
 
