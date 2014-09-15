@@ -58,12 +58,7 @@ analyze:
 
 #more like demonstration how to run executables than actual benchmark
 run: 
-	./generator 100    #generate input file
-	./cpu input.txt
-	./gpu input.txt
-	$(MPICU_RUN) -np 3 ./mpi input.txt
-	multirun
-	gnuplot plot.gnu   #need to set found polynomial parameters manually
+	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICU_RUN) -np 3 ./mpi input.txt && $(MAKE) multirun && gnuplot plot.gnu
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
@@ -71,8 +66,7 @@ test:
 
 #difference between Kepler and Fermi performance
 bench:
-	CUDA_VISIBLE_DEVICES=0 ./gpu input.txt
-	CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
+	CUDA_VISIBLE_DEVICES=0 ./gpu input.txt && CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
 
 clean:
 	rm -rf cpu gpu mpi *.o generator
