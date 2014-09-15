@@ -58,7 +58,7 @@ analyze:
 
 #more like demonstration how to run executables than actual benchmark
 run: 
-	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICU_RUN) -np 3 ./mpi input.txt && $(MAKE) multirun && gnuplot plot.gnu
+	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICU_RUN) -np 3 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt && $(MPICU_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt && gnuplot plot.gnu
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
