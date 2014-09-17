@@ -1,44 +1,54 @@
 #CPU specific configurations
 CPUCC=g++
-CPUCFLAGS=
+CPUCFLAGS=-g -O3
 
 #GPU specific configurations
 GPUCC=nvcc
-GPUCFLAGS=
-CUDA_DIR=/opt/cuda
+GPUCFLAGS=-g -O3 -gencode arch=compute_20,code=sm_20 -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35
+CUDA_DIR=$(shell dirname $(shell which nvcc))/..
 CULIBS=-lcurand -lcudart -lnvToolsExt
 
 #MPI/MPI+CUDA specific configurations
-MPICC=mpic++
-MPICU=/home/jkardos/openmpi-1.8.1/install/bin/mpic++
-MPICU_RUN=/home/jkardos/openmpi-1.8.1/install/bin/mpirun
+#MPIBIN=~/forge/openmpi-1.8.2/install/bin
+MPIBIN=~/openmpi-1.8.1/install/bin
+MPICC=$(MPIBIN)/mpic++
+MPICU=$(MPIBIN)/mpic++
+MPICU_RUN=$(MPIBIN)/mpirun
 
 #absolute path to working dir
-WORK_DIR=/home/jkardos/certification/genetic_algorithm/code
-
+WORK_DIR=$(shell pwd)
 
 ######################## Build rules ############################################ 
 
-all: cpu gpu mpi
+all: cpu gpu mpi multi
 
-cpu: cpu_version.cpp
+
+generator: generator.c
+	gcc -std=c99 $< -o $@
+
+cpu: cpu_version.cpp generator
 	$(CPUCC) $(CPUCFLAGS) $< -o $@
-	gcc -std=c99 generator.c -o generator
-
-
+	
 gpu: gpu_version.cu
 	$(GPUCC) $(GPUCFLAGS) $< -o $@ -lcurand
 
+mpi: mpi_gpu.o mpi_cpu.o
+	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
-mpi: mpi_version.cpp mpi_version.cu mpi_version.h
-	$(GPUCC) $(GPUCFLAGS) -c mpi_version.cu -o mpi_gpu.o
-	$(MPICC) $(CPUCFLAGS) -c mpi_version.cpp -o mpi_cpu.o
-	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 mpi_gpu.o mpi_cpu.o -o $@ $(CULIBS)
+mpi_gpu.o: mpi_version.cu mpi_version.h config.h
+	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
-multi: mpi_version_multi.cu mpi_version_multi.cpp mpi_version_multi.h
-	$(GPUCC) $(GPUCFLAGS) -c mpi_version_multi.cu -o mpi_gpu_multi.o
-	$(MPICU) $(CPUCFLAGS) -I$(CUDA_DIR)/include -c mpi_version_multi.cpp -o mpi_cpu_multi.o
-	$(MPICU) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 mpi_gpu_multi.o mpi_cpu_multi.o -o $@ $(CULIBS)
+mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
+	$(MPICC) $(CPUCFLAGS) -c $< -o $@
+
+multi: mpi_gpu_multi.o mpi_cpu_multi.o
+	$(MPICU) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
+
+mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h config.h
+	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
+
+mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h
+	$(MPICU) $(CPUCFLAGS) -I$(CUDA_DIR)/include -c $< -o $@
 
 
 #########################  Commands to run separate versions ######################## 
@@ -66,12 +76,7 @@ analyze:
 
 #more like demonstration how to run executables than actual benchmark
 run: 
-	./generator 100    #generate input file
-	./cpu input.txt
-	./gpu input.txt
-	mpirun -np 3 ./mpi input5.txt
-	multirun
-	gnuplot plot.gnu   #need to set found polynomial parameters manually
+	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICU_RUN) -np 3 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt && $(MPICU_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt && gnuplot plot.gnu
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
@@ -80,8 +85,7 @@ test:
 
 #difference between Kepler and Fermi performance
 bench:
-	CUDA_VISIBLE_DEVICES=0 ./gpu input.txt
-	CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
+	CUDA_VISIBLE_DEVICES=0 ./gpu input.txt && CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
 
 clean:
 	rm -rf cpu gpu mpi *.o generator multi

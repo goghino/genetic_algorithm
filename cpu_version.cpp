@@ -28,19 +28,9 @@ Outputs:
 #include <time.h>
 #include <algorithm>
 
+#include "config.h"
+
 using namespace std;
-
-#define POPULATION_SIZE 4096 
-#define INDIVIDUAL_LEN 4
-#define N_POINTS 100
-
-#define maxGenerationNumber 1500
-#define maxConstIter 100
-#define targetErr (N_POINTS*0.005)
-#define mu_individuals 0.5
-#define sigma_individuals 0.66
-#define mu_genes 0.56
-#define sigma_genes 0.75
 
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
@@ -313,6 +303,8 @@ int main(int argc, char **argv)
     delete [] population;
     delete [] newPopulation;
     delete [] points;
+
+	return 0;
 }
 
 //------------------------------------------------------------------------------

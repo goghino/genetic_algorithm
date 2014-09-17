@@ -33,8 +33,9 @@ Outputs:
 #include <curand_kernel.h>
 #include <thrust/sort.h>
 
-
 #include "mpi_version_multi.h"
+
+#include "config.h"
 
 using namespace std;
 

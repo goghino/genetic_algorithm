@@ -34,30 +34,19 @@ Outputs:
 #include <thrust/sort.h>
 #include <thrust/device_ptr.h>
 
+#include "config.h"
+
 using namespace std;
 
-#define POPULATION_SIZE (4096*16) /* must be multiple of 64 == BLOCK */
-#define INDIVIDUAL_LEN 4
-#define N_POINTS 100
-
-#define maxGenerationNumber 1500
-#define maxConstIter 150
-#define targetErr (N_POINTS*0.005)
-#define mu_individuals 0.5
-#define sigma_individuals 0.66
-#define mu_genes 0.56
-#define sigma_genes 0.75
-
 #define THREAD 128
-#define BLOCK (POPULATION_SIZE/THREAD)
-
+#define BLOCK (POPULATION_SIZE / THREAD)
 
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
-float *readData(const char *name, const int POINTS_CNT);
+static float *readData(const char *name, const int POINTS_CNT);
 
 // Gets last error and prints message when error is present
-void check_cuda_error(const char *message);
+static void check_cuda_error(const char *message);
 
 /**
     An individual fitness function is the difference between measured f(x) and
@@ -68,25 +57,24 @@ void check_cuda_error(const char *message);
 */
 __global__ void fitness_evaluate(float *individuals, float *points, float *fitness)
 {
-
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if(idx >= POPULATION_SIZE)
+    if (idx >= POPULATION_SIZE)
         return;
 
-    float sumError = 0;
+    float sumError = 0.0f;
 
     //for every given data point
-	for(int pt=0; pt<N_POINTS; pt++)
+	for (int pt = 0; pt < N_POINTS; pt++)
 	{
-		float f_approx = 0.;
+		float f_approx = 0.0f;
 		
         //for every polynomial parameter: Ci * x^(order)
-		for (int order=0; order < INDIVIDUAL_LEN; order++)
+		for (int order = 0; order < INDIVIDUAL_LEN; order++)
 		{
-			f_approx += individuals[idx*INDIVIDUAL_LEN + order] * pow(points[pt], order);
+			f_approx += individuals[idx * INDIVIDUAL_LEN + order] * pow(points[pt], order);
 		}
 
-		sumError += pow(f_approx - points[N_POINTS+pt], 2);
+		sumError += pow(f_approx - points[N_POINTS + pt], 2);
 	}
 	
     //The lower value of fitness is, the better individual fits the model
@@ -106,48 +94,47 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
     child2  = [1 1 0 0]
 */
 
-__global__ void crossover(float *population_dev, curandState *state)
+__global__ void crossover(float *newPopulation_dev, float *oldPopulation_dev, curandState *state)
 {
-    
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
     //Replace only second half of the population by new individuals
     //created by crossover from the first half of the population
-    if(idx >= POPULATION_SIZE || idx<POPULATION_SIZE/2)
+    if ((idx >= POPULATION_SIZE) || (idx < POPULATION_SIZE / 2))
         return;
    
-    //randomly select two fit parrents for mating from the fittest half of the population
-    curandState localState = state[idx*INDIVIDUAL_LEN];
-	int parent1_i = (curand(&localState) % (POPULATION_SIZE/2)) * INDIVIDUAL_LEN;
-	int parent2_i = (curand(&localState) % (POPULATION_SIZE/2)) * INDIVIDUAL_LEN;
+    idx *= INDIVIDUAL_LEN;
 
+    //randomly select two fit parents for mating from the fittest half of the population
+    curandState localState = state[idx];
+	int parent1_i = (curand(&localState) % (POPULATION_SIZE / 2)) * INDIVIDUAL_LEN;
+	int parent2_i = (curand(&localState) % (POPULATION_SIZE / 2)) * INDIVIDUAL_LEN;
 
     //select crosspoint, do not select beginning and end of individual as crosspoint
-	int crosspoint = curand(&localState) % (INDIVIDUAL_LEN - 2) + 1 ;
-	state[idx*INDIVIDUAL_LEN] = localState;
+	int crosspoint = curand(&localState) % (INDIVIDUAL_LEN - 2) + 1;
+	state[idx] = localState;
+
+    
 
     //do actual crossover
-    for(int j=0; j<crosspoint; j++){
-        population_dev[idx*INDIVIDUAL_LEN +j]
-            = population_dev[parent1_i*INDIVIDUAL_LEN + j];
-        //population_dev[(idx+1)*INDIVIDUAL_LEN +j]
-          //  = population_dev[parent2_i*INDIVIDUAL_LEN + j];  
-    }
 
-    for(int j=crosspoint; j<INDIVIDUAL_LEN; j++){
-        population_dev[idx*INDIVIDUAL_LEN + j]
-            = population_dev[parent2_i*INDIVIDUAL_LEN + j];
-        //population_dev[idx*INDIVIDUAL_LEN + j+INDIVIDUAL_LEN]
-         //   = population_dev[parent1_i*INDIVIDUAL_LEN + j];
+    for (int j = 0; j < crosspoint; j++)
+    {
+        newPopulation_dev[idx + j] = oldPopulation_dev[parent1_i + j];
+        newPopulation_dev[idx + j + INDIVIDUAL_LEN] = oldPopulation_dev[parent2_i + j];  
     }
-
+    for (int j = crosspoint; j < INDIVIDUAL_LEN; j++)
+    {
+        newPopulation_dev[idx + j] = oldPopulation_dev[parent2_i + j];
+        newPopulation_dev[idx + j + INDIVIDUAL_LEN] = oldPopulation_dev[parent1_i + j];
+    }
 }
 
 /**
     Generates probabilities for mutation of individuals and their genes
     into arrays in device global memory
 */
-void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator)
+static void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator)
 {
     //mutation rate of individuals
     curandGenerateNormal(generator, *mutIndivid,
@@ -158,7 +145,6 @@ void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t ge
     curandGenerateNormal(generator, *mutGene,
                         POPULATION_SIZE*INDIVIDUAL_LEN, mu_genes, sigma_genes);
     check_cuda_error("Error in normalGenerating 2");
-
 }
 
 /**
@@ -182,22 +168,23 @@ void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t ge
 __global__ void mutation(float *individuals, curandState *state,
                          float* mutIndivid, float* mutGene)
 {
-    int idx = blockDim.x*blockIdx.x + threadIdx.x;
-
-    curandState localState = state[idx];
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
     
     //first individual is not mutated to keep the best solution unchanged    
-    if(idx >= POPULATION_SIZE || idx < 1)
+    if ((idx >= POPULATION_SIZE) || (idx < 1))
         return;
+
+    curandState localState = state[idx];
 
     float mutationRate = mutIndivid[idx];
 
-    for(int j=0; j<INDIVIDUAL_LEN; j++)
+    for (int j = 0; j < INDIVIDUAL_LEN; j++)
     {
-        int flip_idx = idx*INDIVIDUAL_LEN + j;
+        int flip_idx = idx * INDIVIDUAL_LEN + j;
         //probability of mutating gene 
-        if(mutGene[flip_idx] < mutationRate) {
-            individuals[flip_idx] += 0.01*(2*curand_uniform(&localState)-1);
+        if (mutGene[flip_idx] < mutationRate)
+        {
+            individuals[flip_idx] += 0.01 * (2 * curand_uniform(&localState) - 1);
         } 
     }
 
@@ -210,13 +197,11 @@ __global__ void mutation(float *individuals, curandState *state,
 __global__ void setIndexes(int *indexes)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-
-    if (idx>=POPULATION_SIZE) 
+    if (idx >= POPULATION_SIZE) 
         return;
 
     indexes[idx] = idx;
 }
-
 
 /*
     population - sorted individuals according to their fitness
@@ -230,14 +215,14 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
 
     //only first half needs to be placed in sorted manner
     //second half will be overwritten anyway
-    if(idx > POPULATION_SIZE/2)
+    if (idx > POPULATION_SIZE / 2)
         return;
 
     //reorder population so that fittest individuals are first
-    for (int j=0; j<INDIVIDUAL_LEN; j++)
+    for (int j = 0; j < INDIVIDUAL_LEN; j++)
     {
-        newPopulation[idx*INDIVIDUAL_LEN + j]
-            = population[indexes[idx]*INDIVIDUAL_LEN + j];
+        newPopulation[idx * INDIVIDUAL_LEN + j]
+            = population[indexes[idx] * INDIVIDUAL_LEN + j];
     }
 }
 
@@ -246,10 +231,9 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
 */
 __global__ void initCurand(curandState *state)
 {
-    int id = blockDim.x * blockIdx.x + threadIdx.x;
-    curand_init(1337, id, 0, &state[id]);
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    curand_init(1337, idx, 0, &state[idx]);
 }
-
 
 /**
     Initializes initial population by random values. Use range <-50.0, 50.0>
@@ -259,16 +243,15 @@ __global__ void initCurand(curandState *state)
 */
 __global__ void initPopulation(float *population, curandState *state)
 {
-    int id = blockDim.x * blockIdx.x + threadIdx.x;
-    curandState localState = state[id];
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx >= POPULATION_SIZE) return;
 
-    if(id < POPULATION_SIZE)
-    {
-        for(int i=0; i<INDIVIDUAL_LEN; i++)
-            population[id*INDIVIDUAL_LEN + i] = 10*curand_uniform(&localState) - 5;        
-    }
+    curandState localState = state[idx];
 
-    state[id] = localState;
+    for (int i = 0; i < INDIVIDUAL_LEN; i++)
+        population[idx * INDIVIDUAL_LEN + i] = 10 * curand_uniform(&localState) - 5;        
+
+    state[idx] = localState;
 }
 
 //------------------------------------------------------------------------------
@@ -281,17 +264,15 @@ __global__ void initPopulation(float *population, curandState *state)
 */
 int main(int argc, char **argv)
 {
-    if(argc != 2) {
-        cerr << "Usage: $./gpu inputFile" << endl;    
+    if (argc != 2)
+    {
+        cout << "Usage: " << argv[0] << " inputFile" << endl;    
         return -1;
     }
 
     //read input data
     //points are the data to approximate by a polynomial
     float *points = readData(argv[1], N_POINTS);
-    if(points == NULL)
-        return -1;
-
 
     /**
         Allocations of memory
@@ -310,6 +291,7 @@ int main(int argc, char **argv)
 
     float *newPopulation_dev;
     cudaMalloc(&newPopulation_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
+    cudaMemset(newPopulation_dev, 0, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
     check_cuda_error("Error allocating device memory");
 
     //arrays that keeps fitness of individuals withing current population
@@ -341,7 +323,7 @@ int main(int argc, char **argv)
     curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
     check_cuda_error("Error in curandCreateGenerator");
 
-    curandSetPseudoRandomGeneratorSeed(generator, time(NULL));
+    curandSetPseudoRandomGeneratorSeed(generator, 0);
     check_cuda_error("Error in curandSeed");
 
     //recast device pointers into thrust copatible pointers
@@ -371,11 +353,12 @@ int main(int argc, char **argv)
 		generationNumber++;
 	
         /** crossover first half of the population and create new population */
-		crossover<<<BLOCK, THREAD>>>(population_dev, state_random);
+		crossover<<<BLOCK, THREAD>>>(population_dev, newPopulation_dev, state_random);
         cudaDeviceSynchronize();
 
 		/** mutate population and childrens in the whole population*/
         generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
+        cudaDeviceSynchronize();
 		mutation<<<BLOCK, THREAD>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
         cudaDeviceSynchronize();
 		
@@ -389,7 +372,7 @@ int main(int argc, char **argv)
         setIndexes<<<BLOCK, THREAD>>>(indexes_dev);
         cudaDeviceSynchronize();
 
-        thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
+        thrust::stable_sort_by_key(fitnesses_thrust, fitnesses_thrust + POPULATION_SIZE, indexes_thrust);
 
         selection<<<BLOCK, THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
         cudaDeviceSynchronize();
@@ -398,7 +381,9 @@ int main(int argc, char **argv)
         float *tmp = population_dev;
         population_dev = newPopulation_dev;
         newPopulation_dev = tmp;
-        
+        cudaMemcpy(newPopulation_dev, population_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float),
+      	cudaMemcpyDeviceToDevice);
+        check_cuda_error("Duplicatiing new population");
 
         /** time step evaluation - convergence criterion check */
         //get BEST FITNESS to host
@@ -412,11 +397,11 @@ int main(int argc, char **argv)
             noChangeIter = 0;
         previousBestFitness = bestFitness;
 
+#if defined(DEBUG)
         //log message
-        #if defined(DEBUG)
         cout << "#" << generationNumber<< " Fitness: " << bestFitness << \
         " Iterations without change: " << noChangeIter << endl;
-        #endif
+#endif
 	}
 
     int t2 = clock(); //stop timer
@@ -430,14 +415,14 @@ int main(int argc, char **argv)
     check_cuda_error("Coping fitnesses_dev[0] to host");
     
     //solution is first individual of population with the best params of a polynomial    
-    cout << "\tc0 = " << solution[0] << endl \
-    << "\tc1 = " << solution[1] << endl \
-    << "\tc2 = " << solution[2] << endl \
-    << "\tc3 = " << solution[3] << endl \
-    << "Best fitness: " << bestFitness << endl \
-    << "Generations: " << generationNumber << endl;
+    cout << "\tc0 = " << solution[0] << endl
+		<< "\tc1 = " << solution[1] << endl
+		<< "\tc2 = " << solution[2] << endl
+		<< "\tc3 = " << solution[3] << endl
+		<< "Best fitness: " << bestFitness << endl
+		<< "Generations: " << generationNumber << endl;
 
-    cout << "Time for GPU calculation equals \033[35m" \
+    cout << "Time for GPU calculation equals \033[35m"
         << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
     delete [] points;
@@ -453,38 +438,48 @@ int main(int argc, char **argv)
     cudaFree(mutGene_d);//mutation probability
 
     curandDestroyGenerator(generator);
+    
+    return 0;
 }
 
 //------------------------------------------------------------------------------
 
-float *readData(const char *name, const int POINTS_CNT)
+static float *readData(const char *name, const int POINTS_CNT)
 {
-    FILE *file = fopen(name,"r");
+    FILE *file = fopen(name, "r");
  
-	float *points = new float[2*POINTS_CNT]; 
-    if (file != NULL){
-
-        int k=0;
+	float *points = new float[2 * POINTS_CNT]; 
+    if (file)
+    {
         //x, f(x)
-        while(fscanf(file,"%f %f",&points[k],&points[POINTS_CNT+k])!= EOF){
-            k++;
-        }
+        for (int k = 0; k < POINTS_CNT; k++)
+        {
+        	if (fscanf(file, "%f %f", &points[k], &points[POINTS_CNT + k]) == EOF)
+        	{
+        		cerr << "Unexpected end of input data" << endl;
+        		exit(1);
+        	}
+		}
         fclose(file);
         cout << "Reading file - success!" << endl;
-    }else{
+    }
+    else
+    {
         cerr << "Error while opening the file " << name << "!!!" << endl;
         delete [] points;
-        return NULL;
+        exit(1);
     }
 
     return points;
 }
 
-void check_cuda_error(const char *message)
+static void check_cuda_error(const char *message)
 {
-        cudaError_t err = cudaGetLastError();
-            if (err!=cudaSuccess){
-             printf("\033[31mERROR: %s: %s\n\033[0m", message, cudaGetErrorString(err));
-             exit(1);
-            }
+	cudaError_t err = cudaGetLastError();
+	if (err != cudaSuccess)
+	{
+		printf("\033[31mERROR: %s: %s\n\033[0m", message, cudaGetErrorString(err));
+		exit(1);
+	}
 }
+

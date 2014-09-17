@@ -36,19 +36,12 @@ Outputs:
 
 #include "mpi_version.h"
 
-using namespace std;
+#include "config.h"
 
-#define maxGenerationNumber 1500
-#define maxConstIter 100
-#define targetErr (N_POINTS*0.005)
-#define mu_individuals 0.5
-#define sigma_individuals 0.66
-#define mu_genes 0.56
-#define sigma_genes 0.75
+using namespace std;
 
 #define THREAD 128
 #define BLOCK (POPULATION_SIZE/THREAD)
-
 
 /**
     An individual fitness function is the difference between measured f(x) and
@@ -433,9 +426,6 @@ void computeGA(float *points, int deviceID,
     cudaFree(mutGene_d);//mutation probability
 
     curandDestroyGenerator(generator);
-
-    cudaDeviceReset();
-    check_cuda_error("Resseting device");
 }
 
 //------------------------------------------------------------------------------

@@ -32,6 +32,8 @@ Outputs:
 #include "nvToolsExt.h"
 #include "mpi_version_multi.h"
 
+#include "config.h"
+
 using namespace std;
 
 // Error handling macros
@@ -396,13 +398,11 @@ int main(int argc, char **argv)
     curandDestroyGenerator(generator);
     check_cuda_error("Destroying generator");
 
-    cudaDeviceReset();
-    check_cuda_error("Resseting device");
-
     MPI_CHECK(MPI_Type_free(&columntype));
 
-
     MPI_CHECK(MPI_Finalize());
+    
+    return 0;
 }
 
 //------------------------------------------------------------------------------
