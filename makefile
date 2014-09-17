@@ -75,6 +75,7 @@ run:
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
+	cuda-memcheck --leak-check full ./gpu input.txt
 
 
 #difference between Kepler and Fermi performance
