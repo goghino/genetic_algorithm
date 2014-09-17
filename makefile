@@ -12,8 +12,7 @@ CULIBS=-lcurand -lcudart -lnvToolsExt
 #MPIBIN=~/forge/openmpi-1.8.2/install/bin
 MPIBIN=~/openmpi-1.8.1/install/bin
 MPICC=$(MPIBIN)/mpic++
-MPICU=$(MPIBIN)/mpic++
-MPICU_RUN=$(MPIBIN)/mpirun
+MPICC_RUN=$(MPIBIN)/mpirun
 
 #absolute path to working dir
 WORK_DIR=$(shell pwd)
@@ -42,13 +41,13 @@ mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
 	$(MPICC) $(CPUCFLAGS) -c $< -o $@
 
 multi: mpi_gpu_multi.o mpi_cpu_multi.o
-	$(MPICU) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
+	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
 mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h config.h
 	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
 mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h
-	$(MPICU) $(CPUCFLAGS) -I$(CUDA_DIR)/include -c $< -o $@
+	$(MPICC) $(CPUCFLAGS) -I$(CUDA_DIR)/include -c $< -o $@
 
 
 #########################  Commands to run separate versions ######################## 
@@ -60,27 +59,26 @@ runcpu:
 
 
 runmpi:
-	mpirun -n 4 ./mpi input.txt
+	$(MPICC_RUN) -n 4 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt
 
 #cuda aware launch of multi-gpu application
 runmultimpi:
-	$(MPICU_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
+	$(MPICC_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
 ######################## Additional make rules ################################
 
 analyze:
-	amplxe-cl -collect hotspots -result-dir result $(MPICU_RUN) -n 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
+	amplxe-cl -collect hotspots -result-dir result $(MPICC_RUN) -n 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
-#$(MPICU_RUN) -np 4 amplxe-cl -r my_result --collect hotspots $(WORK_DIR)/multi $(WORK_DIR)/input.txt
+#$(MPICC_RUN) -np 4 amplxe-cl -r my_result --collect hotspots $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
 
 #more like demonstration how to run executables than actual benchmark
 run: 
-	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICU_RUN) -np 3 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt && $(MPICU_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt && gnuplot plot.gnu
+	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICC_RUN) -np 3 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt && $(MPICC_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt && gnuplot plot.gnu
 
 test:
 	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
-	cuda-memcheck --leak-check full ./gpu input.txt
 
 
 #difference between Kepler and Fermi performance
