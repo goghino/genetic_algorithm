@@ -94,16 +94,14 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
     child2  = [1 1 0 0]
 */
 
-__global__ void crossover(float *newPopulation_dev, float *oldPopulation_dev, curandState *state)
+__global__ void crossover(float *population_dev, curandState *state)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
     //Replace only second half of the population by new individuals
     //created by crossover from the first half of the population
-    if ((idx >= POPULATION_SIZE) || (idx < POPULATION_SIZE / 2))
+    if ((idx >= POPULATION_SIZE) || (idx <= POPULATION_SIZE / 2))
         return;
-   
-    idx *= INDIVIDUAL_LEN;
 
     //randomly select two fit parents for mating from the fittest half of the population
     curandState localState = state[idx];
@@ -112,21 +110,20 @@ __global__ void crossover(float *newPopulation_dev, float *oldPopulation_dev, cu
 
     //select crosspoint, do not select beginning and end of individual as crosspoint
 	int crosspoint = curand(&localState) % (INDIVIDUAL_LEN - 2) + 1;
-	state[idx] = localState;
+    state[idx] = localState;
 
-    
+
+    //move index to beginning of given individual in population matrix
+    idx *= INDIVIDUAL_LEN;
 
     //do actual crossover
-
     for (int j = 0; j < crosspoint; j++)
     {
-        newPopulation_dev[idx + j] = oldPopulation_dev[parent1_i + j];
-        newPopulation_dev[idx + j + INDIVIDUAL_LEN] = oldPopulation_dev[parent2_i + j];  
+        population_dev[idx + j] = population_dev[parent1_i + j];
     }
     for (int j = crosspoint; j < INDIVIDUAL_LEN; j++)
     {
-        newPopulation_dev[idx + j] = oldPopulation_dev[parent2_i + j];
-        newPopulation_dev[idx + j + INDIVIDUAL_LEN] = oldPopulation_dev[parent1_i + j];
+        population_dev[idx + j] = population_dev[parent2_i + j];
     }
 }
 
@@ -184,7 +181,7 @@ __global__ void mutation(float *individuals, curandState *state,
         //probability of mutating gene 
         if (mutGene[flip_idx] < mutationRate)
         {
-            individuals[flip_idx] += 0.01 * (2 * curand_uniform(&localState) - 1);
+            individuals[flip_idx] += 0.01f * (2 * curand_uniform(&localState) - 1);
         } 
     }
 
@@ -239,7 +236,7 @@ __global__ void initCurand(curandState *state)
     Initializes initial population by random values. Use range <-50.0, 50.0>
 
     Must provide greater state space (random num. interval), otherwise
-    solution is found in first few steps (i.e. <-5,5> if found in very first iter.)
+    solution is found in first few steps (i.e. <-5,5> is found in very first iter.)
 */
 __global__ void initPopulation(float *population, curandState *state)
 {
@@ -353,7 +350,7 @@ int main(int argc, char **argv)
 		generationNumber++;
 	
         /** crossover first half of the population and create new population */
-		crossover<<<BLOCK, THREAD>>>(population_dev, newPopulation_dev, state_random);
+		crossover<<<BLOCK, THREAD>>>(population_dev, state_random);
         cudaDeviceSynchronize();
 
 		/** mutate population and childrens in the whole population*/
@@ -381,9 +378,10 @@ int main(int argc, char **argv)
         float *tmp = population_dev;
         population_dev = newPopulation_dev;
         newPopulation_dev = tmp;
-        cudaMemcpy(newPopulation_dev, population_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float),
-      	cudaMemcpyDeviceToDevice);
-        check_cuda_error("Duplicatiing new population");
+        
+        //cudaMemcpy(newPopulation_dev, population_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float),
+      	//cudaMemcpyDeviceToDevice);
+        //check_cuda_error("Duplicatiing new population");
 
         /** time step evaluation - convergence criterion check */
         //get BEST FITNESS to host
@@ -412,7 +410,7 @@ int main(int argc, char **argv)
     //get solution from device to host
     float *solution = new float[INDIVIDUAL_LEN];
     cudaMemcpy(solution, population_dev, INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
-    check_cuda_error("Coping fitnesses_dev[0] to host");
+    check_cuda_error("Coping solution to host");
     
     //solution is first individual of population with the best params of a polynomial    
     cout << "\tc0 = " << solution[0] << endl
