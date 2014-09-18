@@ -78,7 +78,7 @@ run:
 	./generator 100 && ./cpu input.txt && ./gpu input.txt && $(MPICC_RUN) -np 3 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt && $(MPICC_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt && gnuplot plot.gnu
 
 test:
-	cuda-memcheck --leak-check full --report-api-errors yes ./gpu input.txt
+	cuda-memcheck --leak-check full ./gpu input.txt
 
 
 #difference between Kepler and Fermi performance
