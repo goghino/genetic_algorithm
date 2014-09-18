@@ -142,8 +142,8 @@ __global__ void crossover(float *population_dev, curandState *state)
    
     //randomly select two fit parrents for mating from the fittest half of the population
     curandState localState = state[idx];
-	int parent1_i = (curand(&localState) % (POPULATION_SIZE/2)) * INDIVIDUAL_LEN;
-	int parent2_i = (curand(&localState) % (POPULATION_SIZE/2)) * INDIVIDUAL_LEN;
+	int parent1_i = (curand(&localState) % (POPULATION_SIZE/2));
+	int parent2_i = (curand(&localState) % (POPULATION_SIZE/2));
 
 
     //select crosspoint, do not select beginning and end of individual as crosspoint
@@ -151,22 +151,19 @@ __global__ void crossover(float *population_dev, curandState *state)
 	state[idx] = localState;
 
     //do actual crossover
-    for(int j=0; j<INDIVIDUAL_LEN; j++){
-        if(j<crosspoint)
-        {
+    for(int j=0; j<crosspoint; j++)
+    {
             population_dev[idx +j*POPULATION_SIZE]
                 = population_dev[parent1_i + j*POPULATION_SIZE];
-            population_dev[idx + j*POPULATION_SIZE + 1]
-                = population_dev[parent2_i + j*POPULATION_SIZE];  
-        } else
-        {
-            population_dev[idx + j*POPULATION_SIZE]
-                = population_dev[parent2_i + j*POPULATION_SIZE];
-            population_dev[idx + j*POPULATION_SIZE + 1]
-                = population_dev[parent1_i + j*POPULATION_SIZE];
-        }
     }
 
+    for (int j = crosspoint; j < INDIVIDUAL_LEN; j++)
+    {
+
+        population_dev[idx + j*POPULATION_SIZE]
+            = population_dev[parent2_i + j*POPULATION_SIZE];
+    
+    }
 }
 
 /**

@@ -178,7 +178,7 @@ int main(int argc, char **argv)
     curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
     check_cuda_error("Error in curandCreateGenerator");
 
-    curandSetPseudoRandomGeneratorSeed(generator, time(NULL)/(commRank+1));
+    curandSetPseudoRandomGeneratorSeed(generator, 0);
     check_cuda_error("Error in curandSeed");
 
     //key value for sorting, sorting done only on master process
