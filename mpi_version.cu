@@ -239,13 +239,12 @@ __global__ void initCurand(curandState *state)
 __global__ void initPopulation(float *population, curandState *state)
 {
     int id = blockDim.x * blockIdx.x + threadIdx.x;
-    curandState localState = state[id];
+    if (idx >= POPULATION_SIZE) return;
 
-    if(id < POPULATION_SIZE)
-    {
-        for(int i=0; i<INDIVIDUAL_LEN; i++)
-            population[id + i*POPULATION_SIZE] = 10*curand_uniform(&localState) - 5;        
-    }
+    curandState localState = state[idx];
+
+    for(int i=0; i<INDIVIDUAL_LEN; i++)
+        population[id + i*POPULATION_SIZE] = 10*curand_uniform(&localState) - 5;        
 }
 
 //------------------------------------------------------------------------------
@@ -401,7 +400,7 @@ void computeGA(float *points, int deviceID,
     for(int i=0; i<INDIVIDUAL_LEN; i++){
         cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE],
                    sizeof(float), cudaMemcpyDeviceToHost);
-        check_cuda_error("Coping fitnesses_dev[0] to host");
+        check_cuda_error("Coping solution to host");
     }
 
     *bestFitness_o = bestFitness;

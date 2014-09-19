@@ -71,7 +71,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
         //for every polynomial parameter: Ci * x^(order)
 		for (int order = 0; order < INDIVIDUAL_LEN; order++)
 		{
-			f_approx += individuals[idx * INDIVIDUAL_LEN + order] * pow(points[pt], order);
+			f_approx += individuals[idx + order*POPULATION_SIZE] * pow(points[pt], order);
 		}
 
 		sumError += pow(f_approx - points[N_POINTS + pt], 2);
@@ -100,30 +100,32 @@ __global__ void crossover(float *population_dev, curandState *state)
 
     //Replace only second half of the population by new individuals
     //created by crossover from the first half of the population
-    if ((idx >= POPULATION_SIZE) || (idx <= POPULATION_SIZE / 2))
+    if(idx >= POPULATION_SIZE || idx<POPULATION_SIZE/2)
         return;
-
-    //randomly select two fit parents for mating from the fittest half of the population
+   
+    //randomly select two fit parrents for mating from the fittest half of the population
     curandState localState = state[idx];
-	int parent1_i = (curand(&localState) % (POPULATION_SIZE / 2)) * INDIVIDUAL_LEN;
-	int parent2_i = (curand(&localState) % (POPULATION_SIZE / 2)) * INDIVIDUAL_LEN;
+	int parent1_i = (curand(&localState) % (POPULATION_SIZE/2));
+	int parent2_i = (curand(&localState) % (POPULATION_SIZE/2));
+
 
     //select crosspoint, do not select beginning and end of individual as crosspoint
-	int crosspoint = curand(&localState) % (INDIVIDUAL_LEN - 2) + 1;
-    state[idx] = localState;
-
-
-    //move index to beginning of given individual in population matrix
-    idx *= INDIVIDUAL_LEN;
+	int crosspoint = curand(&localState) % (INDIVIDUAL_LEN - 2) + 1 ;
+	state[idx] = localState;
 
     //do actual crossover
-    for (int j = 0; j < crosspoint; j++)
+    for(int j=0; j<crosspoint; j++)
     {
-        population_dev[idx + j] = population_dev[parent1_i + j];
+            population_dev[idx +j*POPULATION_SIZE]
+                = population_dev[parent1_i + j*POPULATION_SIZE];
     }
+
     for (int j = crosspoint; j < INDIVIDUAL_LEN; j++)
     {
-        population_dev[idx + j] = population_dev[parent2_i + j];
+
+        population_dev[idx + j*POPULATION_SIZE]
+            = population_dev[parent2_i + j*POPULATION_SIZE];
+    
     }
 }
 
@@ -177,7 +179,7 @@ __global__ void mutation(float *individuals, curandState *state,
 
     for (int j = 0; j < INDIVIDUAL_LEN; j++)
     {
-        int flip_idx = idx * INDIVIDUAL_LEN + j;
+        int flip_idx = idx + j * POPULATION_SIZE;
         //probability of mutating gene 
         if (mutGene[flip_idx] < mutationRate)
         {
@@ -218,8 +220,8 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
     //reorder population so that fittest individuals are first
     for (int j = 0; j < INDIVIDUAL_LEN; j++)
     {
-        newPopulation[idx * INDIVIDUAL_LEN + j]
-            = population[indexes[idx] * INDIVIDUAL_LEN + j];
+        newPopulation[idx + j * POPULATION_SIZE]
+            = population[indexes[idx] + j * POPULATION_SIZE];
     }
 }
 
@@ -229,7 +231,7 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
 __global__ void initCurand(curandState *state)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    curand_init(1337, idx, 0, &state[idx]);
+    curand_init(6482, idx, 0, &state[idx]);
 }
 
 /**
@@ -246,7 +248,7 @@ __global__ void initPopulation(float *population, curandState *state)
     curandState localState = state[idx];
 
     for (int i = 0; i < INDIVIDUAL_LEN; i++)
-        population[idx * INDIVIDUAL_LEN + i] = 10 * curand_uniform(&localState) - 5;        
+        population[idx + i * POPULATION_SIZE] = 10 * curand_uniform(&localState) - 5;        
 
     state[idx] = localState;
 }
@@ -405,7 +407,10 @@ int main(int argc, char **argv)
 
     //get solution from device to host
     float *solution = new float[INDIVIDUAL_LEN];
-    cudaMemcpy(solution, population_dev, INDIVIDUAL_LEN*sizeof(float), cudaMemcpyDeviceToHost);
+    for(int i=0; i<INDIVIDUAL_LEN; i++){
+        cudaMemcpy(&solution[i], &population_dev[i*POPULATION_SIZE],
+                   sizeof(float), cudaMemcpyDeviceToHost);
+    }
     check_cuda_error("Coping solution to host");
     
     //solution is first individual of population with the best params of a polynomial    

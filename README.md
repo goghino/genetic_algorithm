@@ -53,13 +53,14 @@ $ ./gpu input.txt
 Reading file - success!
 ------------------------------------------------------------
 Finished! Found Solution:
-	c0 = -5.00638
-	c1 = 2.97788
-	c2 = 4.04224
-	c3 = -2.00125
+	c0 = -5.00663
+	c1 = 2.97804
+	c2 = 4.04249
+	c3 = -2.00143
 Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 5.98 seconds [non-coalesced gl. memory access]
+Time for GPU calculation equals 4.21 seconds [coalesced gl. memory access]
+//Time for GPU calculation equals 5.46 seconds [non-coalesced gl. memory access]
 ```
 
 Ad 3.a)
