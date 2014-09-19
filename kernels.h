@@ -1,6 +1,11 @@
 // Gets last error and prints message when error is present
 static void check_cuda_error(const char *message);
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                            GPU Kernels
+////////////////////////////////////////////////////////////////////////////////
+
 /**
     Initializes seed for CUDA random generator
 */
@@ -11,10 +16,7 @@ __global__ void initCurand(curandState *state)
 }
 
 /**
-    Initializes initial population by random values. Use range <-50.0, 50.0>
-
-    Must provide greater state space (random num. interval), otherwise
-    solution is found in first few steps (i.e. <-5,5> is found in very first iter.)
+    Initializes initial population by random values from range <-5.0, 5.0>
 */
 __global__ void initPopulation(float *population, curandState *state)
 {
@@ -65,6 +67,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
 }
 
 /**
+    Creates new individuals by mating fittest individuals from currend population.
     Individual is set of coeficients c1-c4. 
 
     For example:
@@ -114,20 +117,22 @@ __global__ void crossover(float *population_dev, curandState *state)
 /**
     Mutation is addition of noise to genes, given mean and stddev.
 
-    probabilities of mutating individuals and their 
+    Probabilities of mutating individuals and their 
     genes is computed before calling this kernel
     @mutGene
     @mutIndivid
 
-    For example(binary representation of genes):
-    individual == [1 1 1 1]
+    @size - number of individuals in current (sub)population
+
+    Mutation explained :
+    individual == [1.0 1.0 1.0 1.0]
     mutNumber = 2
     loop 2 times:
        1st: num_of_bit_to_mutate = 2
-            inverse individuals[2]   ->   [1 1 0 1] 
+            inverse individuals[2]   ->   [1.0 1.0 1.0+noise 1.0] 
        2nd: num_of_bit_to_mutate = 0
-            inverse individuals[0]   ->   [0 1 0 1]
-    return mutated individual         [0 1 0 1]
+            inverse individuals[0]   ->   [1.0+noise 1.0 1.0+noise 1.0]
+    return mutated individual is [1.0+noise 1.0 1.0+noise 1.0]               
 */
 __global__ void mutation(float *individuals, curandState *state,
                          float* mutIndivid, float* mutGene, int size)
@@ -168,7 +173,8 @@ __global__ void setIndexes(int *indexes)
 }
 
 /*
-    population - sorted individuals according to their fitness
+    Rearranges @population according to @indexes,
+    indexes are keys created in key-value sorting array of fitness values
 
 	individuals with small (good) fitness value are put to the beginning 
 	individuals with large (bad) fitness value are placed at the end;
@@ -190,9 +196,15 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
     }
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                            Other GPU functions 
+////////////////////////////////////////////////////////////////////////////////
+
+
 /**
     Generates probabilities for mutation of individuals and their genes
-    into arrays in device global memory
+    into arrays in device global memory using curand generator.
 */
 static void generateMutProbab(float** mutIndivid, float **mutGene,
             curandGenerator_t generator, int size)
