@@ -35,11 +35,13 @@ __global__ void initPopulation(float *population, curandState *state)
     evaluated on input data points.
 
     Smaller value means bigger fitness
+
+    @size - number of individuals in current (sub)population
 */
-__global__ void fitness_evaluate(float *individuals, float *points, float *fitness)
+__global__ void fitness_evaluate(float *individuals, float *points, float *fitness, int size)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if (idx >= POPULATION_SIZE)
+    if (idx >= size)
         return;
 
     float sumError = 0.0f;
@@ -52,7 +54,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
         //for every polynomial parameter: Ci * x^(order)
 		for (int order = 0; order < INDIVIDUAL_LEN; order++)
 		{
-			f_approx += individuals[idx + order*POPULATION_SIZE] * pow(points[pt], order);
+			f_approx += individuals[idx + order * size] * pow(points[pt], order);
 		}
 
 		sumError += pow(f_approx - points[N_POINTS + pt], 2);
@@ -128,12 +130,12 @@ __global__ void crossover(float *population_dev, curandState *state)
     return mutated individual         [0 1 0 1]
 */
 __global__ void mutation(float *individuals, curandState *state,
-                         float* mutIndivid, float* mutGene)
+                         float* mutIndivid, float* mutGene, int size)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     
     //first individual is not mutated to keep the best solution unchanged    
-    if ((idx >= POPULATION_SIZE) || (idx < 1))
+    if ((idx >= size) || (idx < 1))
         return;
 
     curandState localState = state[idx];
@@ -142,7 +144,7 @@ __global__ void mutation(float *individuals, curandState *state,
 
     for (int j = 0; j < INDIVIDUAL_LEN; j++)
     {
-        int flip_idx = idx + j * POPULATION_SIZE;
+        int flip_idx = idx + j * size;
         //probability of mutating gene 
         if (mutGene[flip_idx] < mutationRate)
         {
@@ -192,15 +194,16 @@ __global__ void selection(float *population, float *newPopulation, int* indexes)
     Generates probabilities for mutation of individuals and their genes
     into arrays in device global memory
 */
-static void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator)
+static void generateMutProbab(float** mutIndivid, float **mutGene,
+            curandGenerator_t generator, int size)
 {
     //mutation rate of individuals
     curandGenerateNormal(generator, *mutIndivid,
-                        POPULATION_SIZE, mu_individuals, sigma_individuals);
+                        size, mu_individuals, sigma_individuals);
     check_cuda_error("Error in normalGenerating 1");
 
     //mutation rate of each gene
     curandGenerateNormal(generator, *mutGene,
-                        POPULATION_SIZE*INDIVIDUAL_LEN, mu_genes, sigma_genes);
+                        size * INDIVIDUAL_LEN, mu_genes, sigma_genes);
     check_cuda_error("Error in normalGenerating 2");
 }

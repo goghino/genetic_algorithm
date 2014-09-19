@@ -42,13 +42,6 @@ using namespace std;
         cerr << "MPI error calling \""#call"\"\n"; \
         my_abort(-1); }
 
-/**
-    Generates probabilities for mutation of individuals and their genes
-    into arrays in device global memory
-*/
-void generateMutProbab(float** mutIndivid, float **mutGene,
-                       curandGenerator_t generator, int size);
-
 /*
     ---------------------------------------------------------
     |  MPI communication and encapsulated GPU computation   |
@@ -244,8 +237,8 @@ int main(int argc, char **argv)
 
 
 		/** mutate population and childrens in the local portion of population*/
-        generateMutProbab(&mutIndivid_d, &mutGene_d, generator, local_size);
-		doMutation(population_dev_local, state_random, mutIndivid_d, mutGene_d, local_size);
+		doMutation(population_dev_local, state_random, local_size,
+                   mutIndivid_d, mutGene_d, generator);
 
         /** evaluate fitness of individuals in local portion of population */
 		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, local_size);
@@ -428,23 +421,6 @@ float *readData(const char *name, const int POINTS_CNT)
     }
 
     return points;
-}
-
-/**
-    Generates probabilities for mutation of individuals and their genes
-    into arrays in device global memory
-*/
-void generateMutProbab(float** mutIndivid, float **mutGene, curandGenerator_t generator, int size)
-{
-    //mutation rate of individuals
-    curandGenerateNormal(generator, *mutIndivid,
-                        size, mu_individuals, sigma_individuals);
-    check_cuda_error("Error in normalGenerating 1");
-
-    //mutation rate of each gene
-    curandGenerateNormal(generator, *mutGene,
-                        size*INDIVIDUAL_LEN, mu_genes, sigma_genes);
-    check_cuda_error("Error in normalGenerating 2");
 }
 
 // Shut down MPI cleanly if something goes wrong

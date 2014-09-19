@@ -118,6 +118,7 @@ void computeGA(float *points, int deviceID,
     //Initialize first population (with zeros or some random values)
     initCurand<<<BLOCK, THREAD>>>(state_random);
     initPopulation<<<BLOCK, THREAD>>>(population_dev, state_random); //<-5, 5>
+    cudaDeviceSynchronize();
 
     /**
         Main GA loop
@@ -141,12 +142,14 @@ void computeGA(float *points, int deviceID,
         cudaDeviceSynchronize();
 
 		/** mutate population and childrens in the whole population*/
-        generateMutProbab(&mutIndivid_d, &mutGene_d, generator);
-		mutation<<<BLOCK,THREAD>>>(population_dev, state_random, mutIndivid_d, mutGene_d);
+        generateMutProbab(&mutIndivid_d, &mutGene_d, generator, POPULATION_SIZE);
+		mutation<<<BLOCK,THREAD>>>(population_dev, state_random,
+                                   mutIndivid_d, mutGene_d, POPULATION_SIZE);
         cudaDeviceSynchronize();
 		
         /** evaluate fitness of individuals in population */
-		fitness_evaluate<<<BLOCK,THREAD>>>(population_dev, points_dev, fitness_dev);
+		fitness_evaluate<<<BLOCK,THREAD>>>(population_dev, points_dev,
+                                           fitness_dev, POPULATION_SIZE);
         cudaDeviceSynchronize();
         
         /** select individuals for mating to create the next generation,

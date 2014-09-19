@@ -9,9 +9,6 @@ extern "C" {
     // polynomial function using GA.
     float *readData(const char *name, const int POINTS_CNT);
 
-    // Gets last error and prints message when error is present
-    void check_cuda_error(const char *message);
-
     // Finished MPI and aborts
     void my_abort(int err);
 
@@ -19,15 +16,22 @@ extern "C" {
 
     void doCrossover(float *population_dev, curandState* state_random);
 
-    void doMutation(float *population_dev, curandState *state_random,
-                    float *mutIndivid_d, float *mutGene_d, int size);
+    void doMutation(float *population_dev, curandState *state_random, int size,
+                float *mutIndivid_d, float *mutGene_d, curandGenerator_t generator);
 
-    void doFitness_evaluate(float *population_dev, float *points_dev, float *fitness_dev,
-                            int size);
+    void doFitness_evaluate(float *population_dev, float *points_dev,
+                            float *fitness_dev, int size);
 
     void doSelection(thrust::device_ptr<float>fitnesses_thrust,
                      thrust::device_ptr<int>indexes_thrust, int *indexes_dev,
                      float *population_dev, float* newPopulation_dev);
 }
 
-void check_cuda_error(const char *message);
+static void check_cuda_error(const char *message)
+{
+        cudaError_t err = cudaGetLastError();
+            if (err!=cudaSuccess){
+             printf("\033[31mERROR: %s: %s\n\033[0m", message, cudaGetErrorString(err));
+             exit(1);
+            }
+}
