@@ -8,9 +8,6 @@ extern "C" {
     void computeGA(float *points, int deviceID,
        float *solution, float *bestFitness_o, int *genNumber_o, double *time_o);
 
-    // Gets last error and prints message when error is present
-    void check_cuda_error(const char *message);
-
     // Finished MPI and aborts
     void my_abort(int err);
 

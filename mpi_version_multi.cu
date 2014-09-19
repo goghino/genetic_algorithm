@@ -36,6 +36,7 @@ Outputs:
 #include "mpi_version_multi.h"
 
 #include "config.h"
+#include "kernels.h"
 
 using namespace std;
 

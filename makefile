@@ -28,13 +28,13 @@ generator: generator.c
 cpu: cpu_version.cpp generator
 	$(CPUCC) $(CPUCFLAGS) $< -o $@
 	
-gpu: gpu_version.cu
+gpu: gpu_version.cu kernels.h config.h
 	$(GPUCC) $(GPUCFLAGS) $< -o $@ -lcurand
 
 mpi: mpi_gpu.o mpi_cpu.o
 	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
-mpi_gpu.o: mpi_version.cu mpi_version.h config.h
+mpi_gpu.o: mpi_version.cu mpi_version.h kernels.h config.h
 	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
 mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
@@ -43,7 +43,7 @@ mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
 multi: mpi_gpu_multi.o mpi_cpu_multi.o
 	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
-mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h config.h
+mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h kernels.h config.h
 	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
 mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h
