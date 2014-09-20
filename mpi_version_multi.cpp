@@ -236,7 +236,7 @@ int main(int argc, char **argv)
         nvtxRangePushA("Scatter");
             MPI_CHECK(
                 MPI_Scatter(
-                    population_dev, 1, columntype,
+                    population_dev, local_size*INDIVIDUAL_LEN, MPI_FLOAT,
                     population_dev_local, local_size*INDIVIDUAL_LEN, MPI_FLOAT,
                     0, MPI_COMM_WORLD)
             );
