@@ -118,9 +118,14 @@ int main(int argc, char **argv)
     //arrays to hold population    
     float *population_dev;
     float *population_dev_local;
+    float *population_devT;
+    float *population_dev_localT;
     float *newPopulation_dev;
     if(commRank == 0){
         cudaMalloc(&population_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
+        check_cuda_error("Error allocating device memory");
+
+        cudaMalloc(&population_devT, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
         check_cuda_error("Error allocating device memory");
 
         cudaMalloc(&newPopulation_dev, POPULATION_SIZE * INDIVIDUAL_LEN * sizeof(float));
@@ -128,6 +133,9 @@ int main(int argc, char **argv)
     }
 
     cudaMalloc(&population_dev_local, local_size * INDIVIDUAL_LEN * sizeof(float));
+    check_cuda_error("Error allocating device memory"); 
+
+    cudaMalloc(&population_dev_localT, local_size * INDIVIDUAL_LEN * sizeof(float));
     check_cuda_error("Error allocating device memory"); 
 
     //arrays that keeps fitness of individuals withing current population
@@ -225,15 +233,22 @@ int main(int argc, char **argv)
             population matrix to each process  */
         //TODO
 
+        //transpose population matrix so it can be scattered in one scatter call
+        if(commRank == 0)
+            doTranspose(population_devT, population_dev, POPULATION_SIZE);
+
         int i;
         nvtxRangePushA("Scatter");
             MPI_CHECK(
                 MPI_Scatter(
-                    population_dev, 1, columntype,
-                    population_dev_local, local_size*INDIVIDUAL_LEN, MPI_FLOAT,
+                    population_devT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
+                    population_dev_localT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
                     0, MPI_COMM_WORLD)
             );
         nvtxRangePop();
+
+        //transpose recieved population chunk, so it can be accessed in coalesced way
+        doTranspose_inverse(population_dev_local, population_dev_localT, local_size);
 
 
 		/** mutate population and childrens in the local portion of population*/
@@ -243,38 +258,23 @@ int main(int argc, char **argv)
         /** evaluate fitness of individuals in local portion of population */
 		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, local_size);
 
-
         /** gather population & fitnesses back to master process to perform selection*/
+
+        //transpose local population matrix so it can be gathered in one gather call
+        doTranspose(population_dev_localT, population_dev_local, local_size);
+
         nvtxRangePushA("Gather 1");
-        /*
-        //Gather with MPI_type_vector causes crash:
-
-        [tesla-cmc:8669] *** An error occurred in MPI_Gather
-        [tesla-cmc:8669] *** reported by process [2138308609,0]
-        [tesla-cmc:8669] *** on communicator MPI_COMM_WORLD
-        [tesla-cmc:8669] *** MPI_ERR_IN_STATUS: error code in status
-        [tesla-cmc:8669] *** MPI_ERRORS_ARE_FATAL (processes in this communicator will now abort,
-        [tesla-cmc:8669] ***    and potentially your MPI job)
-        make: *** [multirun] Error 18
-
-        MPI_CHECK(
-            MPI_Gather(
-                population_dev_local, local_size*INDIVIDUAL_LEN, MPI_FLOAT,
-                population_dev, 1, columntype,
-                0, MPI_COMM_WORLD)
-        );
-        */
-
-        for(i=0; i<INDIVIDUAL_LEN; i++){
             MPI_CHECK(
                 MPI_Gather(
-                    &population_dev_local[i*local_size], local_size, MPI_FLOAT,
-                    &population_dev[i*POPULATION_SIZE], local_size, MPI_FLOAT,
+                    population_dev_localT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
+                    population_devT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
                     0, MPI_COMM_WORLD)
             );
-        }
-
         nvtxRangePop();
+
+        //transpose gathered population
+        if(commRank == 0)
+            doTranspose_inverse(population_dev, population_devT, POPULATION_SIZE);
 
         nvtxRangePushA("Gather 2");
         MPI_CHECK(
@@ -283,7 +283,8 @@ int main(int argc, char **argv)
                        0, MPI_COMM_WORLD)
         );
         nvtxRangePop();
-      
+
+
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
             fittest individuals first in population  */
@@ -308,7 +309,6 @@ int main(int argc, char **argv)
             else
                 noChangeIter = 0;
             previousBestFitness = bestFitness;
-            //cout << "Best fitness: " << bestFitness << endl;
 
             //log message
             #if defined(DEBUG)
@@ -370,9 +370,15 @@ int main(int argc, char **argv)
 
         cudaFree(population_dev);
         check_cuda_error("population free");
+
+        cudaFree(population_devT);
+        check_cuda_error("population free");
     }
    
     cudaFree(population_dev_local);
+    check_cuda_error("population local free");
+
+    cudaFree(population_dev_localT);
     check_cuda_error("population local free");
 
     if(commRank == 0){

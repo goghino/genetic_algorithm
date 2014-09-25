@@ -44,6 +44,42 @@ using namespace std;
 #define BLOCK (POPULATION_SIZE/THREAD)
 
 //------------------------------------------------------------------------------
+//                              GPU KERNELS
+//------------------------------------------------------------------------------
+
+/*
+    Transforms population matrix from coalesced pattern
+    to continuous array of individuals
+
+    @size - count of individuals in population
+*/
+__global__ void transpose(float *population_devT, float *population_dev, int size)
+{
+    int idx = blockDim.x*blockIdx.x + threadIdx.x;
+
+    for(int i = 0; i<INDIVIDUAL_LEN; i++)
+    {   
+        population_devT[idx*INDIVIDUAL_LEN + i] = population_dev[i*size + idx];
+    }
+}
+
+/*
+    Transforms population matrix from continous pattern
+    to coalesced arrangement in memory
+
+    @size - count of individuals in population
+*/
+__global__ void transpose_inverse(float *population_devT, float *population_dev, int size)
+{
+    int idx = blockDim.x*blockIdx.x + threadIdx.x;
+
+    for(int i = 0; i<INDIVIDUAL_LEN; i++)
+    {   
+        population_devT[i*size + idx] = population_dev[idx*INDIVIDUAL_LEN + i];
+    }
+}
+
+//------------------------------------------------------------------------------
 //                 Encapsulating GPU functions for kernel calls
 //------------------------------------------------------------------------------
 
@@ -119,4 +155,30 @@ void doSelection(thrust::device_ptr<float>fitnesses_thrust,
     //reorder population according to fitness values
     selection<<<block,THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
     cudaDeviceSynchronize();
+}
+
+/*
+    Transforms population matrix from coalesced pattern
+    to continuous array of individuals
+
+    @size - count of individuals in population
+*/
+void doTranspose(float *population_devT, float *population_dev, int size)
+{
+    int block = size/THREAD;
+
+    transpose<<<block,THREAD>>>(population_devT, population_dev, size);
+}
+
+/*
+    Transforms population matrix from continous pattern
+    to coalesced arrangement in memory
+
+    @size - count of individuals in population
+*/
+void doTranspose_inverse(float *population_devT, float *population_dev, int size)
+{
+    int block = size/THREAD;
+
+    transpose_inverse<<<block,THREAD>>>(population_devT, population_dev, size);
 }

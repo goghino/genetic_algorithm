@@ -72,31 +72,32 @@ Reading file - success!
 Reading file - success!
 Reading file - success!
 Rank: 0
-Best fitness: 1.91651
+Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 4.96 seconds [coalesced gl. memory access, compare Ad 2.)]
-Rank: 3
-Best fitness: 1.91601
-Generations: 1500
-Time for GPU calculation equals 6.87 seconds
-Rank: 1
-Best fitness: 1.9157
-Generations: 1500
-Time for GPU calculation equals 6.78 seconds
+Time for GPU calculation equals 4.64 seconds
 Rank: 2
-Best fitness: 1.91584
+Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 6.75 seconds
+Time for GPU calculation equals 6.13 seconds
+Rank: 1
+Best fitness: 1.91558
+Generations: 1500
+Time for GPU calculation equals 6.29 seconds
+Rank: 3
+Best fitness: 1.91558
+Generations: 1500
+Time for GPU calculation equals 6.3 seconds
 ------------------------------------------------------------
-Finished! Found Solution at process #1: 
-	c0 = -5.00659
-	c1 = 2.98028
-	c2 = 4.042
-	c3 = -2.00204
-Best fitness: 1.9157
+Finished! Found Solution at process #0: 
+	c0 = -5.00663
+	c1 = 2.97804
+	c2 = 4.04249
+	c3 = -2.00143
+Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 6.78 seconds
-Time for communication equals 1.47 seconds
+Time for GPU calculation equals 4.64 seconds
+Time for communication equals 1.76 seconds
+
 ```
 
 Ad 3.b)
@@ -118,4 +119,3 @@ Best fitness: 1.91614
 Generations: 1500
 Time for GPU calculation + communication equals 6.56 seconds
 ```
-

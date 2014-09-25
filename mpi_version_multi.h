@@ -25,6 +25,11 @@ extern "C" {
     void doSelection(thrust::device_ptr<float>fitnesses_thrust,
                      thrust::device_ptr<int>indexes_thrust, int *indexes_dev,
                      float *population_dev, float* newPopulation_dev);
+
+    void doTranspose(float *population_devT, float *population_dev, int size);
+
+    void doTranspose_inverse(float *population_devT, float *population_dev, int size);
+
 }
 
 static void check_cuda_error(const char *message)
