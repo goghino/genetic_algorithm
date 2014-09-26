@@ -2,6 +2,7 @@
 #include <curand_kernel.h>
 
 #include <thrust/device_ptr.h>
+#include <thrust/device_vector.h>
 
 // Forward declarations
 extern "C" {

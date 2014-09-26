@@ -290,8 +290,10 @@ int main(int argc, char **argv)
             fittest individuals first in population  */
         if(commRank == 0) {
 
+            nvtxRangePushA("Selection wrapper");
             doSelection(fitnesses_thrust, indexes_thrust, indexes_dev,
                         population_dev, newPopulation_dev);    
+            nvtxRangePop();
 
             //swap populations        
             float *tmp = population_dev;

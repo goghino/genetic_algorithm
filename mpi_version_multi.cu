@@ -37,6 +37,7 @@ Outputs:
 
 #include "config.h"
 #include "kernels.h"
+#include "nvToolsExt.h"
 
 using namespace std;
 
@@ -149,8 +150,11 @@ void doSelection(thrust::device_ptr<float>fitnesses_thrust,
     setIndexes<<<block,THREAD>>>(indexes_dev);
     cudaDeviceSynchronize();
 
+
+    nvtxRangePushA("thrust::sort");
     //sort fitness array
     thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
+    nvtxRangePop();
 
     //reorder population according to fitness values
     selection<<<block,THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
