@@ -44,6 +44,21 @@ using namespace std;
 #define THREAD 128
 #define BLOCK (POPULATION_SIZE/THREAD)
 
+// Override cudaMalloc with our function call so that thrust::sort_by_key
+// does not allocate/free working memory every iteration
+extern __thread bool cudaMallocReuse;
+
+void check_cuda_error(const char *message)
+{
+	cudaError_t err = cudaGetLastError();
+	if (err != cudaSuccess)
+	{
+		printf("\033[31mERROR: %s: %s\n\033[0m", message, cudaGetErrorString(err));
+		exit(1);
+	}
+}
+
+
 //------------------------------------------------------------------------------
 //                              GPU KERNELS
 //------------------------------------------------------------------------------
@@ -152,8 +167,18 @@ void doSelection(thrust::device_ptr<float>fitnesses_thrust,
 
 
     nvtxRangePushA("thrust::sort");
+
+#ifdef THRUST_REUSE_MALLOC
+	cudaMallocReuse = true;
+#endif
+
     //sort fitness array
     thrust::sort_by_key(fitnesses_thrust, fitnesses_thrust+POPULATION_SIZE, indexes_thrust);
+
+#ifdef THRUST_REUSE_MALLOC
+	cudaMallocReuse = false;
+#endif
+
     nvtxRangePop();
 
     //reorder population according to fitness values

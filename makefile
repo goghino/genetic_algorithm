@@ -41,18 +41,24 @@ generator: generator.c
 cudaMalloc.o: cudaMalloc.cu
 	$(GPUCC) $(CINC) $(GPUCFLAGS) -c $< -o $@
 
+check.o: check.c check.h
+	gcc -std=c99 -I$(CUDA_DIR)/include -c $< -o $@
 
 # main program build rules
 cpu: cpu_version.cpp generator
 	$(CPUCC) $(CPUCFLAGS) $< -o $@
 	
+
+
 gpu.o: gpu_version.cu kernels.h config.h check.h
-	$(GPUCC) $(GPUCFLAGS) $(CINC) $(addprefix -Xlinker , $(LINK)) -c $< -o $@
+	$(GPUCC) $(GPUCFLAGS) $(CINC) -c $< -o $@
 
-gpu: gpu.o cudaMalloc.o
-	$(GPUCC) $(GPUCFLAGS) $(CINC) $(addprefix -Xlinker , $(LINK)) -o $@ $? -lcurand
+gpu: check.o gpu.o cudaMalloc.o
+	$(GPUCC) $(GPUCFLAGS) $(CINC) $(addprefix -Xlinker , $(LINK)) -o $@ $^ -lcurand
 
-mpi: mpi_gpu.o mpi_cpu.o
+
+
+mpi: mpi_gpu.o mpi_cpu.o 
 	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
 mpi_gpu.o: mpi_version.cu mpi_version.h kernels.h config.h
@@ -61,13 +67,15 @@ mpi_gpu.o: mpi_version.cu mpi_version.h kernels.h config.h
 mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
 	$(MPICC) $(CPUCFLAGS) -c $< -o $@
 
-multi: mpi_gpu_multi.o mpi_cpu_multi.o
-	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
 
-mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h kernels.h config.h
-	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
 
-mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h
+multi: mpi_gpu_multi.o mpi_cpu_multi.o cudaMalloc.o check.o
+	$(MPICC) $(CINC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $(addprefix -Xlinker , $(LINK)) $^ -o $@ $(CULIBS)
+
+mpi_gpu_multi.o: mpi_version_multi.cu mpi_version_multi.h kernels.h config.h check.h
+	$(GPUCC) $(CINC) $(GPUCFLAGS) -c $< -o $@
+
+mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h check.h
 	$(MPICC) $(CPUCFLAGS) -I$(CUDA_DIR)/include -c $< -o $@
 
 

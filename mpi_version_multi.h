@@ -4,6 +4,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
+#include "check.h"
+
 // Forward declarations
 extern "C" {
     // Reads input file with noisy points. Points will be approximated by 
@@ -31,13 +33,4 @@ extern "C" {
 
     void doTranspose_inverse(float *population_devT, float *population_dev, int size);
 
-}
-
-static void check_cuda_error(const char *message)
-{
-        cudaError_t err = cudaGetLastError();
-            if (err!=cudaSuccess){
-             printf("\033[31mERROR: %s: %s\n\033[0m", message, cudaGetErrorString(err));
-             exit(1);
-            }
 }

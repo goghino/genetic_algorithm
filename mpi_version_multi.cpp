@@ -29,10 +29,10 @@ Outputs:
 #include <time.h>
 #include <algorithm>
 
-#include "nvToolsExt.h"
 #include "mpi_version_multi.h"
 
 #include "config.h"
+#include "nvToolsExt.h"
 
 using namespace std;
 
