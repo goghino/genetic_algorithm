@@ -118,5 +118,7 @@ Finished! Found Solution:
 	c3 = -1.99897
 Best fitness: 1.91614
 Generations: 1500
-Time for GPU calculation + communication equals 6.56 seconds
+Time for GPU calculation + communication equals 4.42 seconds [optimized thrust for reusing memory]
+//Time for GPU calculation + communication equals 5.06 seconds [transposed population matrix, single scatter/gather]
+//Time for GPU calculation + communication equals 6.56 seconds [MPI_type_vector]
 ```

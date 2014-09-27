@@ -58,14 +58,14 @@ gpu: check.o gpu.o cudaMalloc.o
 
 
 
-mpi: mpi_gpu.o mpi_cpu.o 
-	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
+mpi: mpi_gpu.o mpi_cpu.o cudaMalloc.o
+	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $(addprefix -Xlinker , $(LINK)) $^ -o $@ $(CULIBS)
 
-mpi_gpu.o: mpi_version.cu mpi_version.h kernels.h config.h
-	$(GPUCC) $(GPUCFLAGS) -c $< -o $@
+mpi_gpu.o: mpi_version.cu mpi_version.h kernels.h config.h check.h
+	$(GPUCC) $(CINC) $(GPUCFLAGS) -c $< -o $@
 
 mpi_cpu.o: mpi_version.cpp mpi_version.h config.h
-	$(MPICC) $(CPUCFLAGS) -c $< -o $@
+	$(MPICC) $(CINC) $(CPUCFLAGS) -c $< -o $@
 
 
 
