@@ -36,6 +36,7 @@ Outputs:
 
 #include "config.h"
 #include "kernels.h"
+#include "check.h"
 
 using namespace std;
 
@@ -45,6 +46,10 @@ using namespace std;
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
 static float *readData(const char *name, const int POINTS_CNT);
+
+// Override cudaMalloc with our function call so that thrust::sort_by_key
+// does not allocate/free working memory every iteration
+extern __thread bool cudaMallocReuse;
 
 /*
     ------------------------
@@ -165,7 +170,15 @@ int main(int argc, char **argv)
         setIndexes<<<BLOCK, THREAD>>>(indexes_dev);
         cudaDeviceSynchronize();
 
+#ifdef THRUST_REUSE_MALLOC
+	cudaMallocReuse = true;
+#endif
+
         thrust::stable_sort_by_key(fitnesses_thrust, fitnesses_thrust + POPULATION_SIZE, indexes_thrust);
+
+#ifdef THRUST_REUSE_MALLOC
+	cudaMallocReuse = false;
+#endif
 
         selection<<<BLOCK, THREAD>>>(population_dev, newPopulation_dev, indexes_dev);
         cudaDeviceSynchronize();
@@ -264,15 +277,5 @@ static float *readData(const char *name, const int POINTS_CNT)
     }
 
     return points;
-}
-
-static void check_cuda_error(const char *message)
-{
-	cudaError_t err = cudaGetLastError();
-	if (err != cudaSuccess)
-	{
-		printf("\033[31mERROR: %s: %s\n\033[0m", message, cudaGetErrorString(err));
-		exit(1);
-	}
 }
 

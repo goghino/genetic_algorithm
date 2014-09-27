@@ -59,7 +59,8 @@ Finished! Found Solution:
 	c3 = -2.00143
 Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 4.21 seconds [coalesced gl. memory access]
+Time for GPU calculation equals 2.97 seconds [optimized thrust for reusing memory]
+//Time for GPU calculation equals 4.21 seconds [coalesced gl. memory access]
 //Time for GPU calculation equals 5.46 seconds [non-coalesced gl. memory access]
 ```
 

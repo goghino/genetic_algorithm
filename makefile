@@ -17,19 +17,40 @@ MPICC_RUN=$(MPIBIN)/mpirun
 #absolute path to working dir
 WORK_DIR=$(shell pwd)
 
+#
+# Allocate memory for interal Thrust transform_reduce data storage ONCE --
+# wrap cudaMalloc/cudaFree functions called by Thrust on every transform,
+# such that allocation and deallocation shall be performed 1 time during
+# the whole program execution.
+#
+THRUST_REUSE_MALLOC ?= YES
+
+ifneq (,$(THRUST_REUSE_MALLOC))
+	CINC = -DTHRUST_REUSE_MALLOC
+	LINK = --wrap=cudaMalloc --wrap=cudaFree
+endif
+
 ######################## Build rules ############################################ 
 
 all: cpu gpu mpi multi
 
-
+# helper routines
 generator: generator.c
 	gcc -std=c99 $< -o $@
 
+cudaMalloc.o: cudaMalloc.cu
+	$(GPUCC) $(CINC) $(GPUCFLAGS) -c $< -o $@
+
+
+# main program build rules
 cpu: cpu_version.cpp generator
 	$(CPUCC) $(CPUCFLAGS) $< -o $@
 	
-gpu: gpu_version.cu kernels.h config.h
-	$(GPUCC) $(GPUCFLAGS) $< -o $@ -lcurand
+gpu.o: gpu_version.cu kernels.h config.h check.h
+	$(GPUCC) $(GPUCFLAGS) $(CINC) $(addprefix -Xlinker , $(LINK)) -c $< -o $@
+
+gpu: gpu.o cudaMalloc.o
+	$(GPUCC) $(GPUCFLAGS) $(CINC) $(addprefix -Xlinker , $(LINK)) -o $@ $? -lcurand
 
 mpi: mpi_gpu.o mpi_cpu.o
 	$(MPICC) $(CPUCFLAGS) -L$(CUDA_DIR)/lib64 $^ -o $@ $(CULIBS)
