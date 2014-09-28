@@ -57,8 +57,8 @@ Finished! Found Solution:
 Best fitness: 1.91558
 Generations: 1500
 Time for GPU calculation equals 2.97 seconds [optimized thrust for reusing memory]
-//Time for GPU calculation equals 4.21 seconds [coalesced gl. memory access]
-//Time for GPU calculation equals 5.46 seconds [non-coalesced gl. memory access]
+~~Time for GPU calculation equals 4.21 seconds [coalesced gl. memory access]~~
+~~Time for GPU calculation equals 5.46 seconds [non-coalesced gl. memory access]~~
 ```
 
 ### Ad 3.i)
@@ -94,7 +94,6 @@ Finished! Found Solution at process #0:
 Best fitness: 1.91558
 Generations: 1500
 Time for GPU calculation equals 2.9 seconds [optimized thrust for reusing memory]
-//Time for GPU calculation equals 4.64 seconds [coalesced memory access]
 Time for communication equals 1.76 seconds
 
 ```
@@ -117,6 +116,6 @@ Finished! Found Solution:
 Best fitness: 1.91558
 Generations: 1500
 Time for GPU calculation + communication equals 4.41 seconds [optimized thrust for reusing memory]
-//Time for GPU calculation + communication equals 5.06 seconds [transposing population matrix for scatter/gather]
-//Time for GPU calculation + communication equals 6.56 seconds [MPI_type_vector]
+~~Time for GPU calculation + communication equals 5.06 seconds [transposing population matrix for scatter/gather]~~
+~~Time for GPU calculation + communication equals 6.56 seconds [MPI_type_vector]~~
 ```
