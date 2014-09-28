@@ -111,6 +111,15 @@ void doInitPopulation(float *population_dev, curandState *state_random)
     cudaDeviceSynchronize();
 }
 
+/*
+    Initializes only curandState array of size @size for slave processes
+*/
+void doInitCurandOnly(curandState *state_random, int size)
+{
+    int block = size/THREAD;
+    initCurand<<<block, THREAD>>>(state_random);
+}
+
 /**
     Crossover population, all workload is done on master process.
 */

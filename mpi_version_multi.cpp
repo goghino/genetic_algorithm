@@ -189,9 +189,11 @@ int main(int argc, char **argv)
         Main GA loop
     */
 
-    //Initialize first population (with zeros or some random values)
+    //Initialize first population (with zeros or some random values) and curandState*
     if(commRank == 0)
         doInitPopulation(population_dev, state_random);
+    else
+        doInitCurandOnly(state_random, local_size);
     
     int t1 = clock(); //start timer
 

@@ -17,6 +17,8 @@ extern "C" {
 
     void doInitPopulation(float *population_dev, curandState *state_random);
 
+    void doInitCurandOnly(curandState *state_random, int size);
+
     void doCrossover(float *population_dev, curandState* state_random);
 
     void doMutation(float *population_dev, curandState *state_random, int size,
