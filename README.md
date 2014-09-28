@@ -22,13 +22,8 @@ This repository consists of three different impmlementations:
 1. CPU serial code
 2. GPU accelerated code
 3. MPI code using multiple GPUs
-    a. Whole population is cloned to all GPUs, problem is solved without any
-       communication during computation. At the end, each process sends
-       it solution to master, who select the best one.
-    b. Population is distributed across processes. During each time step
-       population is scattered, mutation and evaluation of fitness is done
-       locally on each process and afterwards population is gathered on master,
-       where selection and crossover is performed.
+  1. Whole population is cloned to all GPUs, problem is solved without any communication during computation. At the end, each process sends it solution to master, who select the best one.
+  2. Population is distributed across processes. During each time step population is scattered, mutation and evaluation of fitness is done locally on each process and afterwards population is gathered on master, where selection and crossover is performed.
 
 Ad 1)
 
@@ -64,7 +59,7 @@ Time for GPU calculation equals 2.97 seconds [optimized thrust for reusing memor
 //Time for GPU calculation equals 5.46 seconds [non-coalesced gl. memory access]
 ```
 
-Ad 3.a)
+Ad 3.i)
 
 ```
 jkardos@tesla-cmc:~/certification/genetic_algorithm/code$ mpirun -np 4 ./mpi input.txt
@@ -102,7 +97,7 @@ Time for communication equals 1.76 seconds
 
 ```
 
-Ad 3.b)
+Ad 3.ii)
 
 ```
 jkardos@tesla-cmc:~/certification/genetic_algorithm/code$ make multirun
