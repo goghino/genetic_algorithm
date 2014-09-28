@@ -75,19 +75,19 @@ Reading file - success!
 Rank: 0
 Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 4.64 seconds
-Rank: 2
-Best fitness: 1.91558
-Generations: 1500
-Time for GPU calculation equals 6.13 seconds
+Time for GPU calculation equals 2.9 seconds
 Rank: 1
 Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 6.29 seconds
+Time for GPU calculation equals 4.69 seconds
+Rank: 2
+Best fitness: 1.91558
+Generations: 1500
+Time for GPU calculation equals 4.67 seconds
 Rank: 3
 Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation equals 6.3 seconds
+Time for GPU calculation equals 4.68 seconds
 ------------------------------------------------------------
 Finished! Found Solution at process #0: 
 	c0 = -5.00663
@@ -113,13 +113,13 @@ Reading file - success!
 Reading file - success!
 ------------------------------------------------------------
 Finished! Found Solution: 
-	c0 = -5.00467
-	c1 = 2.97352
-	c2 = 4.04092
-	c3 = -1.99897
-Best fitness: 1.91614
+	c0 = -5.00659
+	c1 = 2.97814
+	c2 = 4.04263
+	c3 = -2.00155
+Best fitness: 1.91558
 Generations: 1500
-Time for GPU calculation + communication equals 4.42 seconds [optimized thrust for reusing memory]
-//Time for GPU calculation + communication equals 5.06 seconds [transposed population matrix, single scatter/gather]
+Time for GPU calculation + communication equals 4.41 seconds [optimized thrust for reusing memory]
+//Time for GPU calculation + communication equals 5.06 seconds [transposing population matrix for scatter/gather]
 //Time for GPU calculation + communication equals 6.56 seconds [MPI_type_vector]
 ```
