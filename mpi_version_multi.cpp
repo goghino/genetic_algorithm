@@ -71,19 +71,7 @@ int main(int argc, char **argv)
 
     //size of local portion of data
     //TODO population%commSize  != 0
-    int local_size = POPULATION_SIZE/commSize;
-
-    // Create derived datatype for MPI communication
-    // Datatype represents one column from population matrix which
-    // corresponts to portion of data distributed to all processes.
-    MPI_Datatype column;    
-    MPI_Datatype columntype;
-
-    MPI_CHECK(MPI_Type_vector(INDIVIDUAL_LEN, local_size, POPULATION_SIZE, MPI_FLOAT, &column)); 
-    MPI_CHECK(MPI_Type_commit(&column));
-
-    MPI_CHECK(MPI_Type_create_resized(column, 0, local_size*sizeof(float), &columntype));
-    MPI_CHECK(MPI_Type_commit(&columntype));    
+    int local_size = POPULATION_SIZE/commSize;    
 
     //read input data
     //points are the data to approximate by a polynomial
@@ -229,15 +217,14 @@ int main(int argc, char **argv)
             pattern - first POPULATION_SIZE entries are first aleles of population,
             next POPULATION_SIZE entries are second aleles and so on...
             
-            We use mpi_type_vector to distribude local_size column-stripes from
-            population matrix to each process  */
+            Before we scatter data we need to transpose the population matrix,
+            so that we scatter whole individuals and use only single MPI_Scatter call  */
         //TODO
 
         //transpose population matrix so it can be scattered in one scatter call
         if(commRank == 0)
             doTranspose(population_devT, population_dev, POPULATION_SIZE);
 
-        int i;
         nvtxRangePushA("Scatter");
             MPI_CHECK(
                 MPI_Scatter(
@@ -398,8 +385,6 @@ int main(int argc, char **argv)
 
     curandDestroyGenerator(generator);
     check_cuda_error("Destroying generator");
-
-    MPI_CHECK(MPI_Type_free(&columntype));
 
     MPI_CHECK(MPI_Finalize());
     

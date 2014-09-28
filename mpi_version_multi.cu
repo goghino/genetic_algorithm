@@ -129,6 +129,7 @@ void doMutation(float *population_dev, curandState *state_random, int size,
                 float *mutIndivid_d, float *mutGene_d, curandGenerator_t generator)
 {
     generateMutProbab(&mutIndivid_d, &mutGene_d, generator, size);
+    cudaDeviceSynchronize();
 
     //TODO size%thread != 0
     int block = size/THREAD;
