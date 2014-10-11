@@ -15,4 +15,3 @@
 #if 0
 #define cudaSetDevice(deviceID) cudaSetDevice(0)
 #endif
-

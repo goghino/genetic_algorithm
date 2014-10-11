@@ -28,6 +28,7 @@ Outputs:
 #include <cmath>
 #include <time.h>
 #include <algorithm>
+#include <assert.h>     /* assert */
 
 #include "mpi_version_multi.h"
 
@@ -71,6 +72,7 @@ int main(int argc, char **argv)
 
     //size of local portion of data
     //TODO population%commSize  != 0
+    assert(POPULATION_SIZE % commSize == 0);
     int local_size = POPULATION_SIZE/commSize;    
 
     //read input data
@@ -82,9 +84,9 @@ int main(int argc, char **argv)
     /**
         Allocations of GPU memory
         
-        Some portion of the code (crossover, selection)
+        Some portion of the code (crossover, mutation, selection)
         is executed only on master process, some workload
-        (mutation, fitness evaluation) is distributed amongst
+        (fitness evaluation) is distributed amongst
         all existing processes.
 
         -master process allocates data for whole population
@@ -132,7 +134,6 @@ int main(int argc, char **argv)
         cudaMalloc(&fitness_dev, POPULATION_SIZE*sizeof(float));
         check_cuda_error("Error allocating device memory");
     }else{
-        //TODO
         cudaMalloc(&fitness_dev, local_size * sizeof(float));
         check_cuda_error("Error allocating device memory");   
     }
@@ -142,34 +143,32 @@ int main(int argc, char **argv)
     if(commRank == 0){
         cudaMalloc((void **)&state_random,POPULATION_SIZE * sizeof(curandState));
         check_cuda_error("Allocating memory for curandState");
-    }else{
-        //TODO
-        cudaMalloc( (void **)&state_random,
-                    local_size * sizeof(curandState));
-        check_cuda_error("Allocating memory for curandState");
-    
     }
 
     //mutation probabilities, mutation done only locally
-    //TODO
     float* mutIndivid_d;
-    cudaMalloc((void **) &mutIndivid_d, local_size * sizeof(float));
-    check_cuda_error("Allocating memory in mutIndivid_d");
+    if(commRank == 0){
+        cudaMalloc((void **) &mutIndivid_d, POPULATION_SIZE * sizeof(float));
+        check_cuda_error("Allocating memory in mutIndivid_d");
+    }
 
     float* mutGene_d;
-    //TODO
-    cudaMalloc((void **)&mutGene_d, local_size * INDIVIDUAL_LEN*sizeof(float));
-    check_cuda_error("Allocating memory in mutGene_d");
+    if(commRank == 0){
+        cudaMalloc((void **)&mutGene_d, POPULATION_SIZE * INDIVIDUAL_LEN*sizeof(float));
+        check_cuda_error("Allocating memory in mutGene_d");
+    }
 
     //create PRNG for generating mutation probabilities
     curandGenerator_t generator;
 
-    curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
-    check_cuda_error("Error in curandCreateGenerator");
+    if(commRank == 0){
+        curandCreateGenerator(&generator, CURAND_RNG_PSEUDO_DEFAULT);
+        check_cuda_error("Error in curandCreateGenerator");
 
-    curandSetPseudoRandomGeneratorSeed(generator, 0);
-    check_cuda_error("Error in curandSeed");
-
+        curandSetPseudoRandomGeneratorSeed(generator, 0);
+        check_cuda_error("Error in curandSeed");
+    }
+    
     //key value for sorting, sorting done only on master process
     int *indexes_dev;
     thrust::device_ptr<int> indexes_thrust;
@@ -192,8 +191,6 @@ int main(int argc, char **argv)
     //Initialize first population (with zeros or some random values) and curandState*
     if(commRank == 0)
         doInitPopulation(population_dev, state_random);
-    else
-        doInitCurandOnly(state_random, local_size);
     
     int t1 = clock(); //start timer
 
@@ -209,19 +206,26 @@ int main(int argc, char **argv)
 	{
 		generationNumber++;
 	
-        /** crossover first half of the population and create new population */
+        /** Crossover first half of the population and create new population 
+        *   and afterward mutate new population
+        */
         if(commRank == 0)
+        {
     		doCrossover(population_dev, state_random);
 
+		    doMutation(population_dev, state_random, POPULATION_SIZE,
+                       mutIndivid_d, mutGene_d, generator);
 
-        /** Distribute population to all processes to perform mutation and fitness eval.
+        }
+
+
+        /** Distribute population to all processes to perform fitness evaluation
             Population is stored in transposed matrix to access global memory in coalesced
             pattern - first POPULATION_SIZE entries are first aleles of population,
             next POPULATION_SIZE entries are second aleles and so on...
             
             Before we scatter data we need to transpose the population matrix,
             so that we scatter whole individuals and use only single MPI_Scatter call  */
-        //TODO
 
         //transpose population matrix so it can be scattered in one scatter call
         if(commRank == 0)
@@ -239,31 +243,8 @@ int main(int argc, char **argv)
         //transpose recieved population chunk, so it can be accessed in coalesced way
         doTranspose_inverse(population_dev_local, population_dev_localT, local_size);
 
-
-		/** mutate population and childrens in the local portion of population*/
-		doMutation(population_dev_local, state_random, local_size,
-                   mutIndivid_d, mutGene_d, generator);
-
         /** evaluate fitness of individuals in local portion of population */
 		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, local_size);
-
-        /** gather population & fitnesses back to master process to perform selection*/
-
-        //transpose local population matrix so it can be gathered in one gather call
-        doTranspose(population_dev_localT, population_dev_local, local_size);
-
-        nvtxRangePushA("Gather 1");
-            MPI_CHECK(
-                MPI_Gather(
-                    population_dev_localT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
-                    population_devT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
-                    0, MPI_COMM_WORLD)
-            );
-        nvtxRangePop();
-
-        //transpose gathered population
-        if(commRank == 0)
-            doTranspose_inverse(population_dev, population_devT, POPULATION_SIZE);
 
         nvtxRangePushA("Gather 2");
         MPI_CHECK(
@@ -375,18 +356,19 @@ int main(int argc, char **argv)
     if(commRank == 0){
         cudaFree(newPopulation_dev);
         check_cuda_error("newPopulation free");
+  
+        cudaFree(state_random);//state curand
+        check_cuda_error("state free");
+
+        cudaFree(mutIndivid_d);//mutation probability
+        check_cuda_error("mutInd free");
+
+        cudaFree(mutGene_d);//mutation probability
+        check_cuda_error("mutGene free");
+
+        curandDestroyGenerator(generator);
+        check_cuda_error("Destroying generator");
     }
-    cudaFree(state_random);//state curand
-    check_cuda_error("state free");
-
-    cudaFree(mutIndivid_d);//mutation probability
-    check_cuda_error("mutInd free");
-
-    cudaFree(mutGene_d);//mutation probability
-    check_cuda_error("mutGene free");
-
-    curandDestroyGenerator(generator);
-    check_cuda_error("Destroying generator");
 
     MPI_CHECK(MPI_Finalize());
     

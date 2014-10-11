@@ -80,12 +80,14 @@ mpi_cpu_multi.o: mpi_version_multi.cpp mpi_version_multi.h config.h check.h
 
 
 #########################  Commands to run separate versions ######################## 
-rungpu:
-	./gpu input.txt
-	
 runcpu:
 	./cpu input.txt
 
+rungpu:
+	./gpu input.txt
+
+rungpu_tesla:
+	CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
 
 runmpi:
 	$(MPICC_RUN) -n 4 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt
@@ -93,6 +95,9 @@ runmpi:
 #cuda aware launch of multi-gpu application
 runmultimpi:
 	$(MPICC_RUN) -np 4 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
+
+runmultimpi_tesla:
+	CUDA_VISIBLE_DEVICES=1,2,3 $(MPICC_RUN) -np 3 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
 ######################## Additional make rules ################################
 
