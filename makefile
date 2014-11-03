@@ -9,10 +9,13 @@ CUDA_DIR=$(shell dirname $(shell which nvcc))/..
 CULIBS=-lcurand -lcudart -lnvToolsExt
 
 #MPI/MPI+CUDA specific configurations
-#MPIBIN=~/forge/openmpi-1.8.2/install/bin
 MPIBIN=~/openmpi-1.8.1/install/bin
 MPICC=$(MPIBIN)/mpic++
 MPICC_RUN=$(MPIBIN)/mpirun
+
+#standard mpi (not cuda-aware)
+#MPICC=mpic++
+#MPICC_RUN=mpirun
 
 #absolute path to working dir
 WORK_DIR=$(shell pwd)
@@ -87,7 +90,7 @@ rungpu:
 	./gpu input.txt
 
 rungpu_tesla:
-	CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
+	CUDA_VISIBLE_DEVICES=2 ./gpu input.txt
 
 runmpi:
 	$(MPICC_RUN) -n 4 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt

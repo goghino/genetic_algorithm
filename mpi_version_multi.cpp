@@ -379,22 +379,28 @@ int main(int argc, char **argv)
 
 float *readData(const char *name, const int POINTS_CNT)
 {
-    FILE *file = fopen(name,"r");
+    FILE *file = fopen(name, "r");
  
-	float *points = new float[2*POINTS_CNT]; 
-    if (file != NULL){
-
-        int k=0;
+	float *points = new float[2 * POINTS_CNT]; 
+    if (file)
+    {
         //x, f(x)
-        while(fscanf(file,"%f %f",&points[k],&points[POINTS_CNT+k])!= EOF){
-            k++;
-        }
+        for (int k = 0; k < POINTS_CNT; k++)
+        {
+        	if (fscanf(file, "%f %f", &points[k], &points[POINTS_CNT + k]) == EOF)
+        	{
+        		cerr << "Unexpected end of input data" << endl;
+        		exit(1);
+        	}
+		}
         fclose(file);
         cout << "Reading file - success!" << endl;
-    }else{
+    }
+    else
+    {
         cerr << "Error while opening the file " << name << "!!!" << endl;
         delete [] points;
-        return NULL;
+        exit(1);
     }
 
     return points;

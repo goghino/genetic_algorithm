@@ -31,7 +31,7 @@ int main(int argc, char **argv)
     if (!f) return -1;
 
     float x = -1.0;
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < N; i++)
     {
         x += 0.03;
         fprintf(f, "%f %f\n", x, poly((x)) + noise());

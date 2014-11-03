@@ -1,4 +1,4 @@
-#define POPULATION_SIZE (4096*16) /* must be multiple of 64 == BLOCK */
+#define POPULATION_SIZE (4096*16*3) /* must be multiple of 64 == BLOCK */
 #define INDIVIDUAL_LEN 4
 #define N_POINTS 100
 
