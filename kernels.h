@@ -22,7 +22,8 @@ __global__ void initPopulation(float *population, curandState *state)
     curandState localState = state[idx];
 
     for (int i = 0; i < INDIVIDUAL_LEN; i++)
-        population[idx + i * POPULATION_SIZE] = 10 * curand_uniform(&localState) - 5;        
+        population[idx + i * POPULATION_SIZE] =
+            2 * RndRange * curand_uniform(&localState) - RndRange;        
 
     state[idx] = localState;
 }

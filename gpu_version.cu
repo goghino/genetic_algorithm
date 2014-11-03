@@ -215,6 +215,7 @@ int main(int argc, char **argv)
         cout << "#" << generationNumber<< " Fitness: " << bestFitness << \
         " Iterations without change: " << noChangeIter << endl;
 #endif
+        //cout << generationNumber << " " << bestFitness << endl;
 	}
 
     int t2 = clock(); //stop timer
