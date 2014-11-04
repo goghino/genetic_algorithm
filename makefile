@@ -102,6 +102,11 @@ runmultimpi:
 runmultimpi_tesla:
 	CUDA_VISIBLE_DEVICES=1,2,3 $(MPICC_RUN) -np 3 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
+#############################  Visualization   ################################
+visual:
+	cd plots && ./make_plots.sh plot_data.dat
+    #ends with error when launched by makefile, run by hand
+	
 ######################## Additional make rules ################################
 
 analyze:
