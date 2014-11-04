@@ -216,6 +216,21 @@ int main(int argc, char **argv)
         " Iterations without change: " << noChangeIter << endl;
 #endif
         //cout << generationNumber << " " << bestFitness << endl;
+
+        //log coefficients for visualizing
+        /*
+        float *solution_tmp;
+        if(generationNumber == 1)
+            solution_tmp = new float[INDIVIDUAL_LEN];
+        for(int i=0; i<INDIVIDUAL_LEN; i++){
+            cudaMemcpy(&solution_tmp[i], &population_dev[i*POPULATION_SIZE],
+                       sizeof(float), cudaMemcpyDeviceToHost);
+            check_cuda_error("Coping solution to host");
+        }
+
+        cout << solution_tmp[0] << " " << solution_tmp[1] << " "
+             << solution_tmp[2] << " " << solution_tmp[3] << endl;
+        */
 	}
 
     int t2 = clock(); //stop timer

@@ -5,7 +5,10 @@
 #define INDIVIDUAL_LEN 4
 
 //number of noisy data points to approximate
-#define N_POINTS 100
+#define N_POINTS 200
+
+//defines interval for random initialization of polynomial coefficients (-RndRange,+RndRange), RndRange > 0
+#define RndRange 5
 
 /**        GA algorithm specific params         */
 
@@ -23,9 +26,6 @@
 #define sigma_individuals 0.66
 #define mu_genes 0.56
 #define sigma_genes 0.75
-
-//defines interval for random initialization of polynomial coefficients (-RndRange,+RndRange), RndRange > 0
-#define RndRange 500
 
 
 // Emulate multi-process MPI on a single GPU, e.g. a laptop.

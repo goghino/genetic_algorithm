@@ -9,7 +9,8 @@ float c0 = -5.;
 float noise()
 {
     float rnd = rand() / (float)RAND_MAX; //<0, 1> 
-    return .5 * (rnd - 0.5); //<-.25, .25>
+    //return 1.4 * rnd - 0.7; //<-.7, .7> 20% noise
+    return 2.8 * rnd -1.4; //40%
 }
 
 float poly(float x)
@@ -30,10 +31,13 @@ int main(int argc, char **argv)
     FILE *f = fopen("input.txt","w");
     if (!f) return -1;
 
-    float x = -1.0;
+    float x = -2.0;
+    float interval_width = 5;
+
+    float increment = interval_width / N;
     for (int i = 0; i < N; i++)
     {
-        x += 0.03;
+        x += increment;
         fprintf(f, "%f %f\n", x, poly((x)) + noise());
     }    
 
