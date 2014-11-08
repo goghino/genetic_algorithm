@@ -151,6 +151,10 @@ int main(int argc, char **argv)
     float bestFitness = INFINITY;
     float previousBestFitness = INFINITY;
 
+#ifdef PERF_METRIC
+    double *t_fitness = new double[maxGenerationNumber];
+#endif
+
 	while ( (generationNumber < maxGenerationNumber)
             /*&& (bestFitness > targetErr)
             && (noChangeIter < maxConstIter) */)
@@ -167,13 +171,23 @@ int main(int argc, char **argv)
 		mutation<<<BLOCK, THREAD>>>(population_dev, state_random,
                                     mutIndivid_d, mutGene_d, POPULATION_SIZE);
         cudaDeviceSynchronize();
-		
+
+#ifdef PERF_METRIC		
+    int t_start = clock();
+#endif
+
         /** evaluate fitness of individuals in population */
 		fitness_evaluate<<<BLOCK, THREAD>>>(population_dev,
                                             points_dev, fitness_dev,
                                             POPULATION_SIZE);
         cudaDeviceSynchronize();
-        
+
+#ifdef PERF_METRIC
+    t_fitness[generationNumber-1] = (clock() - t_start) / (double)CLOCKS_PER_SEC;
+    //total points in generation / kernel execution time 
+    cout << (N_POINTS*POPULATION_SIZE)/t_fitness[generationNumber-1]/1000000000 << " GPOINTS/s" << endl;       
+#endif
+
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
             fittest individuals first in population  */
@@ -210,15 +224,12 @@ int main(int argc, char **argv)
             noChangeIter = 0;
         previousBestFitness = bestFitness;
 
-#if defined(DEBUG)
+#ifdef DEBUG
         //log message
         cout << "#" << generationNumber<< " Fitness: " << bestFitness << \
         " Iterations without change: " << noChangeIter << endl;
-#endif
-        //cout << generationNumber << " " << bestFitness << endl;
 
-        //log coefficients for visualizing
-        /*
+        //log polynomial coefficients for visualizing   
         float *solution_tmp;
         if(generationNumber == 1)
             solution_tmp = new float[INDIVIDUAL_LEN];
@@ -229,8 +240,9 @@ int main(int argc, char **argv)
         }
 
         cout << solution_tmp[0] << " " << solution_tmp[1] << " "
-             << solution_tmp[2] << " " << solution_tmp[3] << endl;
-        */
+             << solution_tmp[2] << " " << solution_tmp[3] << endl;     
+#endif
+
 	}
 
     int t2 = clock(); //stop timer
@@ -259,6 +271,9 @@ int main(int argc, char **argv)
 
     delete [] points;
     delete [] solution;
+#ifdef PERF_METRIC
+    delete [] t_fitness;        
+#endif
 
     cudaFree(points_dev);//input points
     cudaFree(fitness_dev);//fitness array

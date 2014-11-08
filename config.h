@@ -8,7 +8,7 @@
 #define N_POINTS 200
 
 //defines interval for random initialization of polynomial coefficients (-RndRange,+RndRange), RndRange > 0
-#define RndRange 5
+#define RndRange 500
 
 /**        GA algorithm specific params         */
 
@@ -33,3 +33,9 @@
 #if 0
 #define cudaSetDevice(deviceID) cudaSetDevice(0)
 #endif
+
+//outputs info about process of GA evolution (#generation, best fitness, local minima stall)
+#undef DEBUG
+
+//outputs performance metric of most time consuming kernel - fitness_evalute
+#define PERF_METRIC 1

@@ -200,6 +200,13 @@ int main(int argc, char **argv)
     float bestFitness = INFINITY;
     float previousBestFitness = INFINITY;
 
+#ifdef PERF_METRIC
+double *t_fitness;
+if(commRank == 0){    
+    t_fitness = new double[maxGenerationNumber];
+}
+#endif
+
 	while ( (generationNumber < maxGenerationNumber)
             /*&& (bestFitness > targetErr)
             && (noChangeIter < maxConstIter)*/ )
@@ -227,43 +234,65 @@ int main(int argc, char **argv)
             Before we scatter data we need to transpose the population matrix,
             so that we scatter whole individuals and use only single MPI_Scatter call  */
 
+#ifdef PERF_METRIC		
+    int t_start = clock();
+#endif
+
         //transpose population matrix so it can be scattered in one scatter call
         if(commRank == 0)
             doTranspose(population_devT, population_dev, POPULATION_SIZE);
 
+#ifdef DEBUG
         nvtxRangePushA("Scatter");
+#endif
             MPI_CHECK(
                 MPI_Scatter(
                     population_devT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
                     population_dev_localT, INDIVIDUAL_LEN*local_size, MPI_FLOAT,
                     0, MPI_COMM_WORLD)
             );
+#ifdef DEBUG
         nvtxRangePop();
-
+#endif
         //transpose recieved population chunk, so it can be accessed in coalesced way
         doTranspose_inverse(population_dev_local, population_dev_localT, local_size);
 
         /** evaluate fitness of individuals in local portion of population */
 		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, local_size);
 
+#ifdef DEBUG
         nvtxRangePushA("Gather 2");
+#endif        
         MPI_CHECK(
             MPI_Gather(fitness_dev, local_size, MPI_FLOAT,
                        fitness_dev, local_size, MPI_FLOAT,
                        0, MPI_COMM_WORLD)
         );
+#ifdef DEBUG
         nvtxRangePop();
+#endif
 
+#ifdef PERF_METRIC
+if(commRank == 0){
+    t_fitness[generationNumber-1] = (clock() - t_start) / (double)CLOCKS_PER_SEC;
+    //total points in generation / kernel execution time 
+    cout << (N_POINTS*POPULATION_SIZE)/t_fitness[generationNumber-1]/1000000000 <<
+        " GPOINTS/s" << endl;       
+}
+#endif
 
         /** select individuals for mating to create the next generation,
             i.e. sort population according to its fitness and keep
             fittest individuals first in population  */
         if(commRank == 0) {
-
+#ifdef DEBUG
             nvtxRangePushA("Selection wrapper");
+#endif
             doSelection(fitnesses_thrust, indexes_thrust, indexes_dev,
                         population_dev, newPopulation_dev);    
-            nvtxRangePop();
+#ifdef DEBUG 
+           nvtxRangePop();
+#endif
 
             //swap populations        
             float *tmp = population_dev;
@@ -283,7 +312,7 @@ int main(int argc, char **argv)
             previousBestFitness = bestFitness;
 
             //log message
-            #if defined(DEBUG)
+            #ifdef DEBUG
             cout << "#" << generationNumber<< " Fitness: " << bestFitness << \
             " Iterations without change: " << noChangeIter << endl;
             #endif
@@ -368,6 +397,10 @@ int main(int argc, char **argv)
 
         curandDestroyGenerator(generator);
         check_cuda_error("Destroying generator");
+
+#ifdef PERF_METRIC
+    delete [] t_fitness;        
+#endif
     }
 
     MPI_CHECK(MPI_Finalize());

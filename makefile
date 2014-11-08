@@ -90,7 +90,7 @@ rungpu:
 	./gpu input.txt
 
 rungpu_tesla:
-	CUDA_VISIBLE_DEVICES=2 ./gpu input.txt
+	CUDA_VISIBLE_DEVICES=1 ./gpu input.txt
 
 runmpi:
 	$(MPICC_RUN) -n 4 $(WORK_DIR)/mpi $(WORK_DIR)/input.txt
