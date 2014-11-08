@@ -39,7 +39,7 @@ all: cpu gpu mpi multi
 
 # helper routines
 generator: generator.c
-	gcc -std=c99 $< -o $@
+	gcc -std=c99 $< -o $@ -lm
 
 cudaMalloc.o: cudaMalloc.cu
 	$(GPUCC) $(CINC) $(GPUCFLAGS) -c $< -o $@
