@@ -1,1 +1,1 @@
-input500.txt
+inputs/input1.txt
