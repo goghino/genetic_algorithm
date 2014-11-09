@@ -201,9 +201,14 @@ int main(int argc, char **argv)
     float previousBestFitness = INFINITY;
 
 #ifdef PERF_METRIC
-double *t_fitness;
+float *t_fitness;
+cudaEvent_t start, stop;
+const int TOTAL_POINTS = N_POINTS*POPULATION_SIZE;
 if(commRank == 0){    
-    t_fitness = new double[maxGenerationNumber];
+    t_fitness = new float[maxGenerationNumber];
+    
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 }
 #endif
 
@@ -235,7 +240,9 @@ if(commRank == 0){
             so that we scatter whole individuals and use only single MPI_Scatter call  */
 
 #ifdef PERF_METRIC		
-    int t_start = clock();
+    if(commRank == 0){
+        cudaEventRecord(start, 0);
+    }
 #endif
 
         //transpose population matrix so it can be scattered in one scatter call
@@ -273,12 +280,14 @@ if(commRank == 0){
 #endif
 
 #ifdef PERF_METRIC
-if(commRank == 0){
-    t_fitness[generationNumber-1] = (clock() - t_start) / (double)CLOCKS_PER_SEC;
-    //total points in generation / kernel execution time 
-    cout << (N_POINTS*POPULATION_SIZE)/t_fitness[generationNumber-1]/1000000000 <<
-        " GPOINTS/s" << endl;       
-}
+    if(commRank == 0){
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&(t_fitness[generationNumber-1]), start, stop);
+        
+        //total points in generation / kernel execution time 
+        t_fitness[generationNumber-1] = TOTAL_POINTS/t_fitness[generationNumber-1]/1000000;     
+    }
 #endif
 
         /** select individuals for mating to create the next generation,
@@ -353,6 +362,26 @@ if(commRank == 0){
         cout << "Time for GPU calculation + communication equals \033[35m" \
             << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
 
+#ifdef PERF_METRIC
+        //process performance numbers, mean and stddev
+        double sum = 0;
+        for (int i = 0; i < generationNumber; i++)
+        {
+            sum = sum + t_fitness[i];
+        }
+        double average = sum / generationNumber;
+
+        sum = 0;
+        for (int i = 0; i < generationNumber; i++)
+        {
+            sum = sum + pow((t_fitness[i] - average), 2);
+        }
+        double variance = sum / generationNumber;
+        double std_deviation = sqrt(variance);
+
+        cout << "Performance: " << average << " GPoints/s with stddev " << std_deviation << endl;
+#endif
+
     }
 
     
@@ -399,7 +428,9 @@ if(commRank == 0){
         check_cuda_error("Destroying generator");
 
 #ifdef PERF_METRIC
-    delete [] t_fitness;        
+    delete [] t_fitness; 
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);        
 #endif
     }
 
