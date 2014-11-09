@@ -30,12 +30,20 @@ Outputs:
 #include <algorithm>
 #include <assert.h>     /* assert */
 
+#include <iterator>
+#include <fstream>
+#include <vector>
+
 #include "mpi_version_multi.h"
 
 #include "config.h"
 #include "nvToolsExt.h"
 
 using namespace std;
+
+// Reads input file with noisy points. Points will be approximated by 
+// polynomial function using GA.
+static float *readData(const char *name, int *N_POINTS);
 
 // Error handling macros
 #define MPI_CHECK(call) \
@@ -75,9 +83,9 @@ int main(int argc, char **argv)
     assert(POPULATION_SIZE % commSize == 0);
     int local_size = POPULATION_SIZE/commSize;    
 
-    //read input data
-    //points are the data to approximate by a polynomial
-    float *points = readData(argv[1], N_POINTS);
+    //read input data - points to approximate by a polynomial
+    int N_POINTS;
+    float *points = readData(argv[1], &N_POINTS);
     if(points == NULL)
         return -1;
 
@@ -265,7 +273,7 @@ if(commRank == 0){
         doTranspose_inverse(population_dev_local, population_dev_localT, local_size);
 
         /** evaluate fitness of individuals in local portion of population */
-		doFitness_evaluate(population_dev_local, points_dev, fitness_dev, local_size);
+		doFitness_evaluate(population_dev_local, points_dev, N_POINTS, fitness_dev, local_size);
 
 #ifdef DEBUG
         nvtxRangePushA("Gather 2");
@@ -441,33 +449,38 @@ if(commRank == 0){
 
 //------------------------------------------------------------------------------
 
-float *readData(const char *name, const int POINTS_CNT)
+static float *readData(const char *file_name, int *N_POINTS)
 {
-    FILE *file = fopen(name, "r");
- 
-	float *points = new float[2 * POINTS_CNT]; 
-    if (file)
+    std::ifstream is(file_name);
+    if(!is.is_open())
     {
-        //x, f(x)
-        for (int k = 0; k < POINTS_CNT; k++)
-        {
-        	if (fscanf(file, "%f %f", &points[k], &points[POINTS_CNT + k]) == EOF)
-        	{
-        		cerr << "Unexpected end of input data" << endl;
-        		exit(1);
-        	}
-		}
-        fclose(file);
-        cout << "Reading file - success!" << endl;
-    }
-    else
-    {
-        cerr << "Error while opening the file " << name << "!!!" << endl;
-        delete [] points;
-        exit(1);
+      cerr << "Error opening file " << file_name << endl;
+      exit(1);
     }
 
-    return points;
+    std::istream_iterator<double> start(is), end;
+    std::vector<double> points(start, end);
+
+    cout << "Reading file - success!" << endl;
+
+    *N_POINTS = points.size()/2;
+
+    float *points_arr = new float[points.size()];
+
+    //rearrange points array so that first half contains x values, the other f(x)
+    int i = 0;
+    int N = points.size()/2;
+    for (std::vector<double>::iterator it = points.begin() ; it != points.end(); ++it)
+    {
+        if (i % 2 == 0)
+            points_arr[i/2] = *it;
+        else
+            points_arr[i/2 + N] = *it;
+
+        i++;
+    }
+
+    return points_arr;
 }
 
 // Shut down MPI cleanly if something goes wrong

@@ -24,7 +24,7 @@ extern "C" {
     void doMutation(float *population_dev, curandState *state_random, int size,
                 float *mutIndivid_d, float *mutGene_d, curandGenerator_t generator);
 
-    void doFitness_evaluate(float *population_dev, float *points_dev,
+    void doFitness_evaluate(float *population_dev, float *points_dev, int N_POINTS,
                             float *fitness_dev, int size);
 
     void doSelection(thrust::device_ptr<float>fitnesses_thrust,

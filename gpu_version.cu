@@ -28,6 +28,10 @@ Outputs:
 #include <time.h>
 #include <algorithm>
 
+#include <iterator>
+#include <fstream>
+#include <vector>
+
 #include <cuda.h>
 #include <curand.h>
 #include <curand_kernel.h>
@@ -55,7 +59,7 @@ using namespace std;
 
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
-static float *readData(const char *name, const int POINTS_CNT);
+static float *readData(const char *name, int *N_POINTS);
 
 // Override cudaMalloc with our function call so that thrust::sort_by_key
 // does not allocate/free working memory every iteration
@@ -74,9 +78,9 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    //read input data
-    //points are the data to approximate by a polynomial
-    float *points = readData(argv[1], N_POINTS);
+    //read input data - points to approximate by a polynomial
+    int N_POINTS;
+    float *points = readData(argv[1], &N_POINTS);
 
     /**
         Allocations of memory
@@ -182,8 +186,8 @@ int main(int argc, char **argv)
 
         /** evaluate fitness of individuals in population */
 		fitness_evaluate<<<BLOCK, THREAD>>>(population_dev,
-                                            points_dev, fitness_dev,
-                                            POPULATION_SIZE);
+                                            points_dev, N_POINTS,
+                                            fitness_dev, POPULATION_SIZE);
         cudaDeviceSynchronize();
 
 #ifdef PERF_METRIC
@@ -320,32 +324,37 @@ int main(int argc, char **argv)
 
 //------------------------------------------------------------------------------
 
-static float *readData(const char *name, const int POINTS_CNT)
+static float *readData(const char *file_name, int *N_POINTS)
 {
-    FILE *file = fopen(name, "r");
- 
-	float *points = new float[2 * POINTS_CNT]; 
-    if (file)
+    std::ifstream is(file_name);
+    if(!is.is_open())
     {
-        //x, f(x)
-        for (int k = 0; k < POINTS_CNT; k++)
-        {
-        	if (fscanf(file, "%f %f", &points[k], &points[POINTS_CNT + k]) == EOF)
-        	{
-        		cerr << "Unexpected end of input data" << endl;
-        		exit(1);
-        	}
-		}
-        fclose(file);
-        cout << "Reading file - success!" << endl;
-    }
-    else
-    {
-        cerr << "Error while opening the file " << name << "!!!" << endl;
-        delete [] points;
-        exit(1);
+      cerr << "Error opening file " << file_name << endl;
+      exit(1);
     }
 
-    return points;
+    std::istream_iterator<double> start(is), end;
+    std::vector<double> points(start, end);
+
+    cout << "Reading file - success!" << endl;
+
+    *N_POINTS = points.size()/2;
+
+    float *points_arr = new float[points.size()];
+
+    //rearrange points array so that first half contains x values, the other f(x)
+    int i = 0;
+    int N = points.size()/2;
+    for (std::vector<double>::iterator it = points.begin() ; it != points.end(); ++it)
+    {
+        if (i % 2 == 0)
+            points_arr[i/2] = *it;
+        else
+            points_arr[i/2 + N] = *it;
+
+        i++;
+    }
+
+    return points_arr;
 }
 

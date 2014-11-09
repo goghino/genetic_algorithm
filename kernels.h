@@ -37,7 +37,7 @@ __global__ void initPopulation(float *population, curandState *state)
 
     @size - number of individuals in current (sub)population
 */
-__global__ void fitness_evaluate(float *individuals, float *points, float *fitness, int size)
+__global__ void fitness_evaluate(float *individuals, float *points, int POINTS_CNT, float *fitness, int size)
 {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx >= size)
@@ -46,7 +46,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
     float sumError = 0.0f;
 
     //for every given data point
-	for (int pt = 0; pt < N_POINTS; pt++)
+	for (int pt = 0; pt < POINTS_CNT; pt++)
 	{
 		float f_approx = 0.0f;
 		
@@ -56,7 +56,7 @@ __global__ void fitness_evaluate(float *individuals, float *points, float *fitne
 			f_approx += individuals[idx + order * size] * pow(points[pt], order);
 		}
 
-		sumError += pow(f_approx - points[N_POINTS + pt], 2);
+		sumError += pow(f_approx - points[POINTS_CNT + pt], 2);
 	}
 	
     //The lower value of fitness is, the better individual fits the model

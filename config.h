@@ -4,9 +4,6 @@
 //number of polynomial coefficients, including c0 coeff. (IL = max_order + 1)
 #define INDIVIDUAL_LEN 4
 
-//number of noisy data points to approximate
-#define N_POINTS 200
-
 //defines interval for random initialization of polynomial coefficients (-RndRange,+RndRange), RndRange > 0
 #define RndRange 500
 

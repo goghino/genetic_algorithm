@@ -154,12 +154,12 @@ void doMutation(float *population_dev, curandState *state_random, int size,
 
     @size - number of individuals to process
 */
-void doFitness_evaluate(float *population_dev, float *points_dev, float *fitness_dev,
-                        int size)
+void doFitness_evaluate(float *population_dev, float *points_dev, int N_POINTS,
+                        float *fitness_dev, int size)
 {
     int block = size/THREAD;
 
-    fitness_evaluate<<<block,THREAD>>>(population_dev, points_dev, fitness_dev, size);
+    fitness_evaluate<<<block,THREAD>>>(population_dev, points_dev, N_POINTS, fitness_dev, size);
     cudaDeviceSynchronize();
 }
 

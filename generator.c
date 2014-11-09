@@ -60,7 +60,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef SINE
-        fprintf(f, "%f %lf\n", x, poly(x, c3, c2, c1, c0)*sin(x));
+        fprintf(f, "%f %lf\n", x, poly(x, c3, c2, c1, c0)*sin(100*x));
 #endif
     }    
 
