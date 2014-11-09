@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <sys/time.h>
 
 //function sample interval (X_MIN, X_MIN+X_RANGE)
 #define X_MIN -2.0
@@ -16,9 +17,9 @@
 
 float noise()
 {
-    float rnd = rand() / (float)RAND_MAX; //<0, 1> 
+    float rnd = rand() / (float)RAND_MAX - 0.5; //<-0.5, 0.5> 
     //return 1.4 * rnd - 0.7; //<-.7, .7> 20% noise
-    return 2.8 * rnd -1.4; //40%
+    return COEFF_MAX*rnd; //50%
 }
 
 float poly(float x, float c3, float c2, float c1, float c0)
@@ -44,7 +45,13 @@ int main(int argc, char **argv)
     float interval_width = X_RANGE;
 
     //init random polynomial coeffs
-    srand(time(NULL));
+    struct timeval time; 
+    gettimeofday(&time,NULL);
+
+    srand((time.tv_sec * 1000) + (time.tv_usec / 1000));
+//    srand(time(NULL)); // does not work if launched multiple times within same second
+
+
     float c3 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
     float c2 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
     float c1 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
@@ -60,7 +67,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef SINE
-        fprintf(f, "%f %lf\n", x, poly(x, c3, c2, c1, c0)*sin(100*x));
+        fprintf(f, "%f %lf\n", x, poly(x, c3, c2, c1, c0)*sin(x));
 #endif
     }    
 
