@@ -296,12 +296,11 @@ int main(int argc, char **argv)
     cout << "------------------------------------------------------------" << endl;    
     cout << "Finished! Found Solution:" << endl;
     
-    //solution is first individual of population with the best params of a polynomial    
-    cout << "\tc0 = " << population[0] << endl \
-    << "\tc1 = " << population[1] << endl \
-    << "\tc2 = " << population[2] << endl \
-    << "\tc3 = " << population[3] << endl \
-    << "Best fitness: " << bestFitness << endl \
+    //solution is first individual of population with the best params of a polynomial 
+    for(int i=0; i<INDIVIDUAL_LEN; i++){   
+        cout << "\tc" << i << " = " << population[i] << endl;
+    }
+    cout << "Best fitness: " << bestFitness << endl \
     << "Generations: " << generationNumber << endl;
 
     cout << "Time for CPU calculation equals \033[35m" \

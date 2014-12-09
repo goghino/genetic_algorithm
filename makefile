@@ -103,7 +103,7 @@ runmultimpi_tesla: multi
 	CUDA_VISIBLE_DEVICES=1,2,3 $(MPICC_RUN) -np 3 $(WORK_DIR)/multi $(WORK_DIR)/input.txt
 
 runbench_tesla:
-	$(MAKE) runcpu && $(MAKE) rungpu_tesla && $(MAKE) runmultimpi_tesla
+	$(MAKE) runcpu && nvidia-smi && $(MAKE) rungpu_tesla && nvidia-smi && $(MAKE) runmultimpi_tesla
 
 #############################  Visualization   ################################
 visual:

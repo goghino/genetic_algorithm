@@ -270,12 +270,12 @@ int main(int argc, char **argv)
     check_cuda_error("Coping solution to host");
     
     //solution is first individual of population with the best params of a polynomial    
-    cout << "\tc0 = " << solution[0] << endl
-		<< "\tc1 = " << solution[1] << endl
-		<< "\tc2 = " << solution[2] << endl
-		<< "\tc3 = " << solution[3] << endl
-		<< "Best fitness: " << bestFitness << endl
-		<< "Generations: " << generationNumber << endl;
+    for(int i=0; i<INDIVIDUAL_LEN; i++){    
+        cout << "\tc" << i << " = " << solution[i] << endl;
+    }
+
+    cout << "Best fitness: " << bestFitness << endl
+		 << "Generations: " << generationNumber << endl;
 
     cout << "Time for GPU calculation equals \033[35m"
         << (t2-t1)/(double)CLOCKS_PER_SEC << " seconds\033[0m" << endl;
