@@ -28,13 +28,19 @@ Outputs:
 #include <time.h>
 #include <algorithm>
 
+#include <iterator>
+#include <fstream>
+#include <vector>
+
 #include "config.h"
 
 using namespace std;
 
+int N_POINTS;
+
 // Reads input file with noisy points. Points will be approximated by 
 // polynomial function using GA.
-float *readData(const char *name, const int POINTS_CNT);
+float *readData(const char *name, int *POINTS_CNT);
 
 // Generages random no. with normal distribution
 float nrand(float mu, float sigma);
@@ -203,6 +209,8 @@ float *selection(float *population, float *fitnesses, float *newPopulation)
     return newPopulation;
 }
 
+
+
 /*
     Main body of the GA
 */
@@ -215,7 +223,7 @@ int main(int argc, char **argv)
 
     //read input data
     //points are the data to approximate by a polynomial
-    float *points = readData(argv[1], N_POINTS);
+    float *points = readData(argv[1], &N_POINTS);
     if(points == NULL)
         return -1;
 
@@ -333,25 +341,36 @@ float nrand(float mu, float sigma)
     return X2;
 }
 
-float *readData(const char *name, const int POINTS_CNT)
+float *readData(const char *file_name, int *N_POINTS)
 {
-    FILE *file = fopen(name,"r");
- 
-	float *points = new float[2*POINTS_CNT]; 
-    if (file != NULL){
-
-        int k=0;
-        //x, f(x)
-        while(fscanf(file,"%f %f",&points[k],&points[POINTS_CNT+k])!= EOF){
-            k++;
-        }
-        fclose(file);
-        cout << "Reading file - success!" << endl;
-    }else{
-        cerr << "Error while opening the file " << name << "!!!" << endl;
-        delete [] points;
-        return NULL;
+    std::ifstream is(file_name);
+    if(!is.is_open())
+    {
+      cerr << "Error opening file " << file_name << endl;
+      exit(1);
     }
 
-    return points;
+    std::istream_iterator<double> start(is), end;
+    std::vector<double> points(start, end);
+
+    cout << "Reading file - success!" << endl;
+
+    *N_POINTS = points.size()/2;
+
+    float *points_arr = new float[points.size()];
+
+    //rearrange points array so that first half contains x values, the other f(x)
+    int i = 0;
+    int N = points.size()/2;
+    for (std::vector<double>::iterator it = points.begin() ; it != points.end(); ++it)
+    {
+        if (i % 2 == 0)
+            points_arr[i/2] = *it;
+        else
+            points_arr[i/2 + N] = *it;
+
+        i++;
+    }
+
+    return points_arr;
 }

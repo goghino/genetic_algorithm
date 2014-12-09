@@ -22,21 +22,27 @@ float noise()
     return COEFF_MAX*rnd; //50%
 }
 
-float poly(float x, float c3, float c2, float c1, float c0)
+float poly(float x, float *c, int D)
 {
-    return c3 * x * x * x + c2 * x * x + c1 * x + c0;
+    float sum = 0;
+    for(int i=0; i<=D; i++){
+        sum += c[i]*pow(x,i);
+    }
+
+    return sum;
 }
 
 
 int main(int argc, char **argv)
 {
-	if (argc != 2)
+	if (argc != 3)
 	{
-		printf("Usage: %s <SAMPLE_POINS>\n", argv[0]);
+		printf("Usage: %s <POLY_ORDER> <SAMPLE_POINS_CNT>\n", argv[0]);
 		exit(1);
 	}
 
-    int N = atoi(argv[1]);
+    int D = atoi(argv[1]);
+    int N = atoi(argv[2]);
     
     FILE *f = fopen("input_file.txt","w");
     if (!f) return -1;
@@ -52,26 +58,31 @@ int main(int argc, char **argv)
 //    srand(time(NULL)); // does not work if launched multiple times within same second
 
 
-    float c3 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
-    float c2 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
-    float c1 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
-    float c0 = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
-    printf("c0=%f, c1=%f, c2=%f, c3=%f\n",c0,c1,c2,c3);
+    float *c = malloc((D+1)*sizeof(float));
+    if (c == NULL)
+        exit(1);
+
+    //init coeffs
+    for(int i = 0; i <= D; i++){
+        c[i] = (2*(rand()/(float)RAND_MAX) - 1) * COEFF_MAX;
+        printf("c%d=%f\n",i,c[i]);
+    }
 
     float increment = interval_width / N;
     for (int i = 0; i < N; i++)
     {
         x += increment;
 #ifdef NOISE
-        fprintf(f, "%f %f\n", x, poly(x, c3, c2, c1, c0) + noise());
+        fprintf(f, "%f %f\n", x, poly(x, c, D) + noise());
 #endif
 
 #ifdef SINE
-        fprintf(f, "%f %lf\n", x, poly(x, c3, c2, c1, c0)*sin(x));
+        fprintf(f, "%f %lf\n", x, poly(x, c, D)*sin(x));
 #endif
     }    
 
     fclose(f);
+    free(c);
 
     return 0;
 }

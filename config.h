@@ -1,8 +1,8 @@
 //specifies function definition space
-#define POPULATION_SIZE (4096*16*3) /* must be multiple of 64 == BLOCK */
+#define POPULATION_SIZE (196608) /* must be multiple of 64 == BLOCK */
 
 //number of polynomial coefficients, including c0 coeff. (IL = max_order + 1)
-#define INDIVIDUAL_LEN 4
+#define INDIVIDUAL_LEN 6
 
 //defines interval for random initialization of polynomial coefficients (-RndRange,+RndRange), RndRange > 0
 #define RndRange 500

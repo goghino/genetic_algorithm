@@ -1,1 +1,1 @@
-inputs/input1.txt
+input_file.txt
